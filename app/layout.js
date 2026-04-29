@@ -23,7 +23,6 @@ export default function RootLayout({ children }) {
           <nav className="flex flex-wrap justify-around bg-white p-3 shadow text-xl gap-2">
 
             <Link href="/calendar">📅</Link>
-            <Link href="/calendar/new">➕</Link>
             <Link href="/clients">👤</Link>
             <Link href="/services">💅</Link>
             <Link href="/dashboard/incassi">💰</Link>
