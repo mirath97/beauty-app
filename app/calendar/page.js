@@ -16,6 +16,7 @@ export default function CalendarPage() {
   const [services, setServices] = useState([])
 
   const [clientId, setClientId] = useState('')
+  const [clientSearch, setClientSearch] = useState('')
   const [selectedServices, setSelectedServices] = useState([])
   const [time, setTime] = useState('')
   const [duration, setDuration] = useState(60)
@@ -29,6 +30,12 @@ export default function CalendarPage() {
     const day = d.getDay()
     const diff = d.getDate() - day + (day === 0 ? -6 : 1)
     return new Date(d.setDate(diff))
+  }
+
+  function changeWeek(offset) {
+    const d = new Date(weekStart)
+    d.setDate(d.getDate() + offset * 7)
+    setWeekStart(new Date(d))
   }
 
   function getWeekDays() {
@@ -91,6 +98,7 @@ export default function CalendarPage() {
     setCurrentId(null)
     setSelectedDate(day)
     setClientId('')
+    setClientSearch('')
     setSelectedServices([])
     setTime('')
     setDuration(60)
@@ -103,6 +111,7 @@ export default function CalendarPage() {
 
     setSelectedDate(new Date(app.data))
     setClientId(app.client_id)
+    setClientSearch(app.clients?.nome || '')
 
     setSelectedServices(app.appointment_services.map(s => s.services))
     setTime(new Date(app.data).toTimeString().slice(0, 5))
@@ -132,11 +141,7 @@ export default function CalendarPage() {
     if (editMode) {
       await supabase
         .from('appointments')
-        .update({
-          data: d,
-          client_id: clientId,
-          durata: duration
-        })
+        .update({ data: d, client_id: clientId, durata: duration })
         .eq('id', currentId)
 
       await supabase
@@ -146,13 +151,7 @@ export default function CalendarPage() {
     } else {
       const { data } = await supabase
         .from('appointments')
-        .insert([
-          {
-            data: d,
-            client_id: clientId,
-            durata: duration
-          }
-        ])
+        .insert([{ data: d, client_id: clientId, durata: duration }])
         .select()
         .single()
 
@@ -170,28 +169,25 @@ export default function CalendarPage() {
     fetchAll()
   }
 
-  function sendWhatsAppReminder(app) {
-    const phone = app.clients?.telefono
-    if (!phone) return alert('Numero mancante')
-
-    const date = new Date(app.data)
-
-    const text = `Ciao ${app.clients?.nome} 💅
-Appuntamento il ${date.toLocaleDateString('it-IT')} alle ${date.toLocaleTimeString([], {
-      hour: '2-digit',
-      minute: '2-digit'
-    })}`
-
-    window.open(`https://wa.me/${phone.replace('+', '')}?text=${encodeURIComponent(text)}`)
-  }
+  const filteredClients = clients.filter(c =>
+    c.nome.toLowerCase().includes(clientSearch.toLowerCase())
+  )
 
   return (
     <div className="p-4 space-y-4">
 
-      <h1 className="text-2xl font-bold text-pink-700 text-center">
-        Calendario
-      </h1>
+      {/* HEADER */}
+      <div className="flex justify-between items-center">
+        <button onClick={() => changeWeek(-1)}>←</button>
 
+        <h1 className="text-xl font-bold text-pink-700">
+          Calendario
+        </h1>
+
+        <button onClick={() => changeWeek(1)}>→</button>
+      </div>
+
+      {/* GRID */}
       <div className="grid grid-cols-7 gap-2">
 
         {getWeekDays().map((day, i) => {
@@ -199,17 +195,17 @@ Appuntamento il ${date.toLocaleDateString('it-IT')} alle ${date.toLocaleTimeStri
           const total = getDailyTotal(dayApps)
 
           return (
-            <div key={i} className="bg-gray-100 rounded-xl p-2 flex flex-col min-h-[300px]">
+            <div key={i} className="bg-gray-100 p-2 rounded flex flex-col min-h-[250px]">
 
-              <div className="flex justify-between items-center">
-                <div className="font-bold text-sm">
+              <div className="flex justify-between">
+                <div className="text-sm font-bold">
                   {day.toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric' })}
                 </div>
 
                 <button onClick={() => openNew(day)}>➕</button>
               </div>
 
-              <div className="text-green-600 text-xs mb-2">
+              <div className="text-green-600 text-xs mb-1">
                 € {total}
               </div>
 
@@ -219,21 +215,11 @@ Appuntamento il ${date.toLocaleDateString('it-IT')} alle ${date.toLocaleTimeStri
                   <div
                     key={app.id}
                     onClick={() => openEdit(app)}
-                    className="bg-white p-2 rounded shadow text-xs cursor-pointer"
+                    className="bg-white p-2 rounded text-xs shadow cursor-pointer"
                   >
                     <div>{app.clients?.nome}</div>
                     <div>€ {getTotal(app)}</div>
-                    <div>{app.durata || 60} min</div>
-
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        sendWhatsAppReminder(app)
-                      }}
-                      className="mt-1 bg-green-500 text-white w-full text-xs rounded"
-                    >
-                      📲
-                    </button>
+                    <div>{app.durata} min</div>
                   </div>
                 ))}
 
@@ -245,21 +231,33 @@ Appuntamento il ${date.toLocaleDateString('it-IT')} alle ${date.toLocaleTimeStri
 
       </div>
 
+      {/* MODALE */}
       {open && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
 
-          <div className="bg-white p-6 rounded-xl w-[90%] max-w-md space-y-4">
+          <div className="bg-white p-4 rounded-xl w-[90%] max-w-md space-y-3">
 
-            <select
-              value={clientId}
-              onChange={e => setClientId(e.target.value)}
+            <input
+              placeholder="Cerca cliente..."
+              value={clientSearch}
+              onChange={e => setClientSearch(e.target.value)}
               className="w-full border p-2 rounded"
-            >
-              <option value="">Cliente</option>
-              {clients.map(c => (
-                <option key={c.id} value={c.id}>{c.nome}</option>
+            />
+
+            <div className="max-h-32 overflow-y-auto">
+              {filteredClients.map(c => (
+                <div
+                  key={c.id}
+                  onClick={() => {
+                    setClientId(c.id)
+                    setClientSearch(c.nome)
+                  }}
+                  className="p-2 hover:bg-gray-100 cursor-pointer"
+                >
+                  {c.nome}
+                </div>
               ))}
-            </select>
+            </div>
 
             <input
               type="time"
@@ -275,27 +273,18 @@ Appuntamento il ${date.toLocaleDateString('it-IT')} alle ${date.toLocaleTimeStri
               className="w-full border p-2 rounded"
             />
 
-            <div className="max-h-40 overflow-y-auto space-y-1">
-              {services.map(s => (
-                <div
-                  key={s.id}
-                  onClick={() => toggleService(s)}
-                  className={`p-2 rounded cursor-pointer ${
-                    selectedServices.find(x => x.id === s.id)
-                      ? 'bg-pink-200'
-                      : 'bg-gray-100'
-                  }`}
-                >
-                  {s.nome}
-                </div>
-              ))}
-            </div>
-
             <button
               onClick={saveAppointment}
               className="w-full bg-pink-600 text-white p-2 rounded"
             >
               Salva
+            </button>
+
+            <button
+              onClick={() => setOpen(false)}
+              className="w-full bg-gray-300 p-2 rounded"
+            >
+              Annulla
             </button>
 
           </div>
