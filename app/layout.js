@@ -15,9 +15,7 @@ export default function RootLayout({ children }) {
 
           {/* HEADER */}
           <div className="text-center">
-            <h1 className="text-2xl font-bold text-pink-700">
-              Beauty Lab Antonell
-            </h1>
+            <h1 style={{color: 'red'}}>TEST GITHUB</h1>
           </div>
 
           {/* NAV */}
