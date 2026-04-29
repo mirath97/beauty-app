@@ -25,7 +25,77 @@ export default function AIPage() {
     setAppointments(apps || [])
     setClients(clientsData || [])
   }
+  
+  {/* ================= AI EXTRA (SERVIZI + VIP) ================= */}
 
+{(() => {
+
+  function getTopServices() {
+    const count = {}
+
+    appointments.forEach(app => {
+      app.appointment_services?.forEach(s => {
+        const name = s.services?.nome
+        if (!name) return
+        count[name] = (count[name] || 0) + 1
+      })
+    })
+
+    return Object.entries(count)
+      .map(([name, total]) => ({ name, total }))
+      .sort((a, b) => b.total - a.total)
+  }
+
+  function getVipClients() {
+    const count = {}
+
+    appointments.forEach(app => {
+      const name = app.clients?.nome
+      if (!name) return
+      count[name] = (count[name] || 0) + 1
+    })
+
+    return Object.entries(count)
+      .map(([name, total]) => ({ name, total }))
+      .sort((a, b) => b.total - a.total)
+  }
+
+  return (
+    <div className="space-y-4">
+
+      {/* 💅 SERVIZI TOP */}
+      <div className="bg-blue-100 p-4 rounded-xl">
+        <div className="font-bold mb-2">
+          💅 Servizi più richiesti
+        </div>
+
+        {getTopServices().slice(0, 5).map((s, i) => (
+          <div key={i} className="flex justify-between text-sm">
+            <span>{s.name}</span>
+            <span>{s.total}x</span>
+          </div>
+        ))}
+      </div>
+
+      {/* 👑 CLIENTI VIP */}
+      <div className="bg-purple-100 p-4 rounded-xl">
+        <div className="font-bold mb-2">
+          👑 Clienti VIP
+        </div>
+
+        {getVipClients().slice(0, 5).map((c, i) => (
+          <div key={i} className="flex justify-between text-sm">
+            <span>{c.name}</span>
+            <span>{c.total} visite</span>
+          </div>
+        ))}
+      </div>
+
+    </div>
+  )
+
+})()}
+  
   // 💰 incasso settimana
   function getWeeklyTotal() {
     const now = new Date()
