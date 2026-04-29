@@ -16,7 +16,7 @@ export default function RootLayout({ children }) {
           {/* HEADER */}
           <div className="text-center">
             <h1 className="text-2xl font-bold text-pink-700">
-              Beauty Lab Antonella
+              Beauty Lab Antonell
             </h1>
           </div>
 
