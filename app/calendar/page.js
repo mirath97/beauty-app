@@ -2,8 +2,11 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useRouter } from 'next/navigation'
 
 export default function CalendarPage() {
+  const router = useRouter()
+
   const [appointments, setAppointments] = useState([])
   const [weekStart, setWeekStart] = useState(getStartOfWeek(new Date()))
 
@@ -106,6 +109,11 @@ export default function CalendarPage() {
     return 'bg-green-100'
   }
 
+  function goToDay(day) {
+    const date = day.toISOString().split('T')[0]
+    router.push(`/calendar/day?date=${date}`)
+  }
+
   function openNew(day) {
     setEditMode(false)
     setCurrentId(null)
@@ -123,8 +131,7 @@ export default function CalendarPage() {
     setSelectedDate(new Date(app.data))
     setClientId(app.client_id)
 
-    const selected = app.appointment_services.map(s => s.services)
-    setSelectedServices(selected)
+    setSelectedServices(app.appointment_services.map(s => s.services))
 
     setTime(new Date(app.data).toTimeString().slice(0, 5))
     setDuration(app.durata || 60)
@@ -152,10 +159,7 @@ export default function CalendarPage() {
       const existingEnd = new Date(existingStart)
       existingEnd.setMinutes(existingEnd.getMinutes() + (app.durata || 60))
 
-      const overlap =
-        startDate < existingEnd && endDate > existingStart
-
-      if (overlap) return true
+      if (startDate < existingEnd && endDate > existingStart) return true
     }
 
     return false
@@ -172,14 +176,8 @@ export default function CalendarPage() {
     const end = new Date(d)
     end.setMinutes(end.getMinutes() + duration)
 
-    const hasOverlap = await checkOverlap(
-      d,
-      end,
-      editMode ? currentId : null
-    )
-
-    if (hasOverlap) {
-      alert('⚠️ Orario già occupato!')
+    if (await checkOverlap(d, end, editMode ? currentId : null)) {
+      alert('Orario occupato')
       return
     }
 
@@ -188,11 +186,7 @@ export default function CalendarPage() {
     if (editMode) {
       await supabase
         .from('appointments')
-        .update({
-          data: d,
-          client_id: clientId,
-          durata: duration
-        })
+        .update({ data: d, client_id: clientId, durata: duration })
         .eq('id', currentId)
 
       await supabase
@@ -202,13 +196,7 @@ export default function CalendarPage() {
     } else {
       const { data } = await supabase
         .from('appointments')
-        .insert([
-          {
-            data: d,
-            client_id: clientId,
-            durata: duration
-          }
-        ])
+        .insert([{ data: d, client_id: clientId, durata: duration }])
         .select()
         .single()
 
@@ -226,179 +214,79 @@ export default function CalendarPage() {
     fetchAll()
   }
 
-  // 📲 WHATSAPP REMINDER
   function sendWhatsAppReminder(app) {
     const phone = app.clients?.telefono
-    if (!phone) {
-      alert('Numero cliente mancante')
-      return
-    }
+    if (!phone) return alert('Numero mancante')
 
     const date = new Date(app.data)
 
     const text = `Ciao ${app.clients?.nome} 💅
-ti ricordiamo il tuo appuntamento il ${date.toLocaleDateString('it-IT')} alle ${date.toLocaleTimeString([], {
+Appuntamento il ${date.toLocaleDateString('it-IT')} alle ${date.toLocaleTimeString([], {
       hour: '2-digit',
       minute: '2-digit'
-    })}.
-A presto!`
+    })}`
 
-    const url = `https://wa.me/${phone.replace('+', '')}?text=${encodeURIComponent(text)}`
-    window.open(url, '_blank')
+    window.open(`https://wa.me/${phone.replace('+', '')}?text=${encodeURIComponent(text)}`)
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 p-4">
 
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between">
         <button onClick={() => changeWeek(-1)}>←</button>
         <h1 className="text-2xl font-bold text-pink-700">Calendario</h1>
         <button onClick={() => changeWeek(1)}>→</button>
       </div>
 
-      <div className="overflow-x-auto">
-        <div className="flex gap-3 min-w-[900px]">
+      <div className="grid grid-cols-7 gap-2">
 
-          {getWeekDays().map((day, i) => {
-            const dayApps = getAppointmentsForDay(day)
-            const total = getDailyTotal(dayApps)
+        {getWeekDays().map((day, i) => {
+          const dayApps = getAppointmentsForDay(day)
+          const total = getDailyTotal(dayApps)
 
-            return (
-              <div key={i} className={`p-3 rounded-2xl w-[140px] flex-shrink-0 ${getDayColor(total)}`}>
+          return (
+            <div
+              key={i}
+              onDoubleClick={() => goToDay(day)}
+              className={`p-2 rounded-xl min-h-[300px] flex flex-col cursor-pointer ${getDayColor(total)}`}
+            >
+              <div className="flex justify-between">
+                <div>{formatDay(day)}</div>
+                <button onClick={() => openNew(day)}>➕</button>
+              </div>
 
-                <div className="flex justify-between items-center mb-2">
-                  <div className="font-bold text-pink-700 text-sm">
-                    {formatDay(day)}
-                  </div>
+              <div className="text-green-600 text-xs">€ {total}</div>
 
-                  <button onClick={() => openNew(day)} className="text-pink-600">
-                    ➕
-                  </button>
-                </div>
+              <div className="space-y-2 mt-2">
 
-                <div className="text-green-700 text-xs mb-2">
-                  € {total}
-                </div>
+                {dayApps.map(app => (
+                  <div
+                    key={app.id}
+                    onClick={() => openEdit(app)}
+                    className="bg-white p-2 rounded text-xs shadow"
+                  >
+                    <div>{app.clients?.nome}</div>
+                    <div>€ {getTotal(app)}</div>
+                    <div>{app.durata || 60} min</div>
 
-                <div className="space-y-2">
-                  {dayApps.map(app => (
-                    <div
-                      key={app.id}
-                      onClick={() => openEdit(app)}
-                      className="bg-white p-2 rounded-xl text-xs shadow cursor-pointer"
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        sendWhatsAppReminder(app)
+                      }}
+                      className="bg-green-500 text-white w-full text-xs mt-1 rounded"
                     >
-                      <div className="font-semibold">
-                        {new Date(app.data).toLocaleTimeString([], {
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
-                      </div>
-
-                      <div>{app.clients?.nome}</div>
-
-                      <div className="text-green-600 font-bold">
-                        € {getTotal(app)}
-                      </div>
-
-                      <div className="text-gray-400">
-                        {app.durata || 60} min
-                      </div>
-
-                      {/* 📲 REMINDER */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          sendWhatsAppReminder(app)
-                        }}
-                        className="text-xs bg-green-500 text-white px-2 py-1 rounded mt-1 w-full"
-                      >
-                        📲 Reminder
-                      </button>
-
-                    </div>
-                  ))}
-                </div>
+                      📲
+                    </button>
+                  </div>
+                ))}
 
               </div>
-            )
-          })}
+            </div>
+          )
+        })}
 
-        </div>
       </div>
-
-      {open && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
-
-          <div className="bg-white p-6 rounded-2xl w-[90%] max-w-md space-y-4">
-
-            <h2 className="text-xl font-bold text-pink-700">
-              {editMode ? 'Modifica' : 'Nuovo'} appuntamento
-            </h2>
-
-            <select
-              value={clientId}
-              onChange={e => setClientId(e.target.value)}
-              className="w-full border p-3 rounded-xl"
-            >
-              <option value="">Cliente</option>
-              {clients.map(c => (
-                <option key={c.id} value={c.id}>
-                  {c.nome}
-                </option>
-              ))}
-            </select>
-
-            <input
-              type="time"
-              value={time}
-              onChange={e => setTime(e.target.value)}
-              className="w-full border p-3 rounded-xl"
-            />
-
-            <input
-              type="number"
-              value={duration}
-              onChange={e => setDuration(Number(e.target.value))}
-              className="w-full border p-3 rounded-xl"
-              placeholder="Durata (minuti)"
-            />
-
-            <div className="space-y-2 max-h-40 overflow-y-auto">
-              {services.map(s => (
-                <div
-                  key={s.id}
-                  onClick={() => toggleService(s)}
-                  className={`p-2 rounded cursor-pointer ${
-                    selectedServices.find(x => x.id === s.id)
-                      ? 'bg-pink-200'
-                      : 'bg-gray-100'
-                  }`}
-                >
-                  {s.nome}
-                </div>
-              ))}
-            </div>
-
-            <div className="flex gap-2">
-              <button
-                onClick={() => setOpen(false)}
-                className="w-full bg-gray-200 p-3 rounded-xl"
-              >
-                Annulla
-              </button>
-
-              <button
-                onClick={saveAppointment}
-                className="w-full bg-pink-600 text-white p-3 rounded-xl"
-              >
-                Salva
-              </button>
-            </div>
-
-          </div>
-
-        </div>
-      )}
 
     </div>
   )
