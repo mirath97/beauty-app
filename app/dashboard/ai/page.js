@@ -3,163 +3,140 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
-export default function DashboardAI() {
-  const [insights, setInsights] = useState([])
-  const [month, setMonth] = useState(new Date())
+export default function AIPage() {
+  const [appointments, setAppointments] = useState([])
+  const [clients, setClients] = useState([])
 
   useEffect(() => {
     fetchData()
-  }, [month])
+  }, [])
 
   async function fetchData() {
-    const start = new Date(month.getFullYear(), month.getMonth(), 1)
-    const end = new Date(month.getFullYear(), month.getMonth() + 1, 0)
-
-    const prevStart = new Date(month.getFullYear(), month.getMonth() - 1, 1)
-    const prevEnd = new Date(month.getFullYear(), month.getMonth(), 0)
-
-    const { data } = await supabase
+    const { data: apps } = await supabase
       .from('appointments')
       .select(`
-        data,
-        clients (id, nome),
-        appointment_services (
-          services (id, nome, prezzo)
-        )
+        *,
+        clients (nome, telefono),
+        appointment_services (services (*))
       `)
-      .gte('data', prevStart.toISOString())
-      .lte('data', end.toISOString())
 
-    const all = data || []
+    const { data: clientsData } = await supabase.from('clients').select('*')
 
-    const currentApps = all.filter(a => {
-      const d = new Date(a.data)
-      return d >= start && d <= end
-    })
-
-    const prevApps = all.filter(a => {
-      const d = new Date(a.data)
-      return d >= prevStart && d <= prevEnd
-    })
-
-    buildInsights(currentApps, prevApps)
+    setAppointments(apps || [])
+    setClients(clientsData || [])
   }
 
-  function buildInsights(currentApps, prevApps) {
-    const suggestions = []
+  // 💰 incasso settimana
+  function getWeeklyTotal() {
+    const now = new Date()
+    const start = new Date()
+    start.setDate(now.getDate() - 7)
 
-    const serviceMap = {}
-    const prevServiceMap = {}
-    const clientMap = {}
-
-    // mese corrente
-    currentApps.forEach(app => {
-      app.appointment_services.forEach(s => {
-        const serv = s.services
-
-        serviceMap[serv.id] = serviceMap[serv.id] || {
-          nome: serv.nome,
-          count: 0
-        }
-
-        serviceMap[serv.id].count++
-      })
-
-      if (app.clients) {
-        const c = app.clients
-
-        clientMap[c.id] = clientMap[c.id] || {
-          nome: c.nome,
-          totale: 0
-        }
-
-        const total = app.appointment_services.reduce(
-          (acc, s) => acc + (s.services.prezzo || 0),
-          0
+    return appointments
+      .filter(a => new Date(a.data) >= start)
+      .reduce((tot, a) => {
+        return (
+          tot +
+          a.appointment_services.reduce(
+            (acc, s) => acc + (s.services.prezzo || 0),
+            0
+          )
         )
-
-        clientMap[c.id].totale += total
-      }
-    })
-
-    // mese precedente
-    prevApps.forEach(app => {
-      app.appointment_services.forEach(s => {
-        const serv = s.services
-        prevServiceMap[serv.id] = (prevServiceMap[serv.id] || 0) + 1
-      })
-    })
-
-    // 💅 servizio top
-    const topService = Object.values(serviceMap).sort((a,b)=>b.count-a.count)[0]
-    if (topService) {
-      suggestions.push(`💡 Spingi ${topService.nome}: è il più richiesto`)
-    }
-
-    // ⚠️ servizi in calo
-    Object.keys(serviceMap).forEach(id => {
-      const current = serviceMap[id].count
-      const prev = prevServiceMap[id] || 0
-
-      if (prev > 0 && current < prev) {
-        suggestions.push(`⚠️ ${serviceMap[id].nome} è in calo`)
-      }
-    })
-
-    // 👑 cliente top
-    const topClient = Object.values(clientMap).sort((a,b)=>b.totale-a.totale)[0]
-    if (topClient) {
-      suggestions.push(`👑 ${topClient.nome} è una cliente VIP`)
-    }
-
-    setInsights(suggestions)
+      }, 0)
   }
 
-  function changeMonth(offset) {
-    const d = new Date(month)
-    d.setMonth(d.getMonth() + offset)
-    setMonth(d)
+  // 🔥 clienti inattivi
+  function getInactiveClients() {
+    const map = {}
+
+    appointments.forEach(app => {
+      const id = app.client_id
+      const date = new Date(app.data)
+
+      if (!map[id] || new Date(map[id].data) < date) {
+        map[id] = app
+      }
+    })
+
+    const now = new Date()
+
+    return Object.values(map)
+      .map(app => {
+        const diff = Math.floor((now - new Date(app.data)) / (1000 * 60 * 60 * 24))
+        return { ...app, diff }
+      })
+      .filter(c => c.diff >= 30)
+      .sort((a, b) => b.diff - a.diff)
+  }
+
+  function sendWhatsApp(client) {
+    const phone = client.clients?.telefono
+    if (!phone) return
+
+    const text = `Ciao ${client.clients?.nome} 💅
+Ti aspettiamo per il prossimo appuntamento!`
+
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`)
   }
 
   return (
-    <div className="p-4 space-y-6">
+    <div className="p-4 space-y-4">
 
-      {/* HEADER */}
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-pink-700">
-          AI Business
-        </h1>
+      <h1 className="text-2xl font-bold text-pink-700">
+        🤖 Centro Controllo Business
+      </h1>
 
-        <div className="flex gap-2">
-          <button onClick={() => changeMonth(-1)}>←</button>
-          <div>
-            {month.toLocaleDateString('it-IT', {
-              month: 'long',
-              year: 'numeric'
-            })}
-          </div>
-          <button onClick={() => changeMonth(1)}>→</button>
+      {/* 💰 PERFORMANCE */}
+      <div className="bg-green-100 p-4 rounded-xl">
+        <div className="font-bold">💰 Incasso settimana</div>
+        <div className="text-2xl font-bold">
+          € {getWeeklyTotal()}
         </div>
       </div>
 
-      {/* INSIGHTS */}
-      <div className="space-y-3">
+      {/* ⚠️ CLIENTI PERSI */}
+      <div className="bg-red-100 p-4 rounded-xl">
+        <div className="font-bold mb-2">
+          ⚠️ Clienti da recuperare
+        </div>
 
-        {insights.length === 0 && (
-          <div className="text-gray-400">
-            Nessun dato disponibile
-          </div>
-        )}
+        {getInactiveClients().slice(0, 5).map((c, i) => (
+          <div key={i} className="flex justify-between items-center bg-white p-2 rounded mb-2">
 
-        {insights.map((i, index) => (
-          <div
-            key={index}
-            className="p-4 bg-pink-50 rounded-2xl text-pink-700"
-          >
-            {i}
+            <div>
+              <div className="font-semibold">
+                {c.clients?.nome}
+              </div>
+              <div className="text-xs text-gray-500">
+                {c.diff} giorni
+              </div>
+            </div>
+
+            <button
+              onClick={() => sendWhatsApp(c)}
+              className="bg-green-500 text-white px-2 py-1 rounded text-xs"
+            >
+              📲 Scrivi
+            </button>
+
           </div>
         ))}
 
+      </div>
+
+      {/* 🚀 AZIONI */}
+      <div className="bg-yellow-100 p-4 rounded-xl">
+        <div className="font-bold mb-2">
+          🚀 Azioni consigliate
+        </div>
+
+        <div className="text-sm">
+          • Contatta clienti inattivi  
+          <br />
+          • Riempi giorni vuoti  
+          <br />
+          • Spingi servizi più richiesti  
+        </div>
       </div>
 
     </div>
