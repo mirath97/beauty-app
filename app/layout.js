@@ -11,44 +11,30 @@ export default function RootLayout({ children }) {
     <html lang="it">
       <body className="bg-pink-50">
 
-        <div className="max-w-md mx-auto min-h-screen flex flex-col gap-4 p-4">
+        <div className="min-h-screen flex flex-col">
 
           {/* HEADER */}
-          <div className="text-center">
-            <h1 className="text-2xl font-bold text-pink-700">
+          <div className="text-center py-4">
+            <h1 className="text-3xl font-bold text-pink-700">
               Beauty Lab Antonella
             </h1>
           </div>
 
           {/* NAV */}
-          <nav className="flex justify-between bg-white p-3 rounded-2xl shadow text-xl">
+          <nav className="flex justify-around bg-white p-3 shadow text-xl sticky top-0 z-50">
 
-            <Link href="/calendar" className="flex-1 text-center">
-              📅
-            </Link>
-
-            <Link href="/clients" className="flex-1 text-center">
-              👤
-            </Link>
-
-            <Link href="/dashboard" className="flex-1 text-center">
-              💰
-            </Link>
-
-            <Link href="/dashboard/ai" className="flex-1 text-center">
-              🧠
-            </Link>
-
-            <Link href="/reminders" className="flex-1 text-center">
-              📲
-            </Link>
+            <Link href="/calendar">📅</Link>
+            <Link href="/clients">👤</Link>
+            <Link href="/dashboard">💰</Link>
+            <Link href="/dashboard/ai">🧠</Link>
+            <Link href="/reminders">📲</Link>
 
           </nav>
 
           {/* CONTENUTO */}
-          <div className="flex-1">
+          <main className="flex-1 w-full max-w-6xl mx-auto p-4">
             {children}
-          </div>
+          </main>
 
         </div>
 
