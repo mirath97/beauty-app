@@ -23,10 +23,8 @@ export default function DayView() {
       .select(`
         id,
         data,
-        clients (nome),
-        appointment_services (
-          services (nome, durata)
-        )
+        durata,
+        clients (nome)
       `)
       .gte('data', start.toISOString())
       .lte('data', end.toISOString())
@@ -34,37 +32,29 @@ export default function DayView() {
     setAppointments(data || [])
   }
 
-  function getHours() {
-    const hours = []
-    for (let i = 9; i <= 19; i++) {
-      hours.push(i)
-    }
-    return hours
+  const START_HOUR = 9
+  const END_HOUR = 19
+  const TOTAL_MINUTES = (END_HOUR - START_HOUR) * 60
+
+  function getTop(startDate) {
+    const h = startDate.getHours()
+    const m = startDate.getMinutes()
+
+    const minutesFromStart =
+      (h - START_HOUR) * 60 + m
+
+    return (minutesFromStart / TOTAL_MINUTES) * 100
   }
 
-  function getPosition(app) {
-    const date = new Date(app.data)
-    const hour = date.getHours()
-    const minutes = date.getMinutes()
-
-    const top = (hour - 9) * 80 + (minutes / 60) * 80
-
-    // durata
-    const duration = app.appointment_services.reduce(
-      (acc, s) => acc + (s.services.durata || 30),
-      0
-    )
-
-    const height = (duration / 60) * 80
-
-    return { top, height }
+  function getHeight(duration) {
+    return (duration / TOTAL_MINUTES) * 100
   }
 
   return (
     <div className="p-4">
 
       <h1 className="text-2xl font-bold text-pink-700 mb-4">
-        Timeline giornaliera
+        Timeline PRO
       </h1>
 
       <input
@@ -73,43 +63,63 @@ export default function DayView() {
         className="mb-4 border p-2 rounded"
       />
 
-      <div className="relative border rounded-xl h-[800px] bg-white">
+      <div className="flex">
 
-        {/* ORARI */}
-        {getHours().map(h => (
-          <div
-            key={h}
-            className="absolute left-0 w-full border-t text-xs text-gray-400"
-            style={{ top: (h - 9) * 80 }}
-          >
-            {h}:00
-          </div>
-        ))}
-
-        {/* APPUNTAMENTI */}
-        {appointments.map(app => {
-          const { top, height } = getPosition(app)
-
-          return (
-            <div
-              key={app.id}
-              className="absolute left-16 right-2 bg-pink-200 rounded-xl p-2 text-xs shadow"
-              style={{
-                top,
-                height
-              }}
-            >
-              <div className="font-semibold">
-                {new Date(app.data).toLocaleTimeString([], {
-                  hour: '2-digit',
-                  minute: '2-digit'
-                })}
-              </div>
-
-              <div>{app.clients?.nome}</div>
+        {/* COLONNA ORARI */}
+        <div className="w-16 text-xs text-gray-400">
+          {Array.from({ length: END_HOUR - START_HOUR }).map((_, i) => (
+            <div key={i} className="h-24 border-t">
+              {START_HOUR + i}:00
             </div>
-          )
-        })}
+          ))}
+        </div>
+
+        {/* AREA TIMELINE */}
+        <div className="flex-1 relative h-[720px] bg-white border rounded-xl">
+
+          {/* LINEE ORARIE */}
+          {Array.from({ length: END_HOUR - START_HOUR }).map((_, i) => (
+            <div
+              key={i}
+              className="absolute left-0 right-0 border-t"
+              style={{ top: `${(i / (END_HOUR - START_HOUR)) * 100}%` }}
+            />
+          ))}
+
+          {/* APPUNTAMENTI */}
+          {appointments.map(app => {
+            const start = new Date(app.data)
+            const durata = app.durata || 60
+
+            const top = getTop(start)
+            const height = getHeight(durata)
+
+            return (
+              <div
+                key={app.id}
+                className="absolute left-2 right-2 bg-pink-200 rounded-xl p-2 text-xs shadow"
+                style={{
+                  top: `${top}%`,
+                  height: `${height}%`
+                }}
+              >
+                <div className="font-semibold">
+                  {start.toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+                </div>
+
+                <div>{app.clients?.nome}</div>
+
+                <div className="text-gray-500">
+                  {durata} min
+                </div>
+              </div>
+            )
+          })}
+
+        </div>
 
       </div>
 

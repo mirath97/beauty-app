@@ -18,7 +18,7 @@ export default function CalendarPage() {
   const [clientId, setClientId] = useState('')
   const [selectedServices, setSelectedServices] = useState([])
   const [time, setTime] = useState('')
-  const [duration, setDuration] = useState(60) // ✅ NUOVO
+  const [duration, setDuration] = useState(60)
 
   useEffect(() => {
     fetchAll()
@@ -51,7 +51,7 @@ export default function CalendarPage() {
         data,
         durata,
         client_id,
-        clients (nome),
+        clients (nome, telefono),
         appointment_services (
           services (*)
         )
@@ -113,7 +113,7 @@ export default function CalendarPage() {
     setClientId('')
     setSelectedServices([])
     setTime('')
-    setDuration(60) // ✅ default
+    setDuration(60)
     setOpen(true)
   }
 
@@ -127,7 +127,7 @@ export default function CalendarPage() {
     setSelectedServices(selected)
 
     setTime(new Date(app.data).toTimeString().slice(0, 5))
-    setDuration(app.durata || 60) // ✅ carica durata
+    setDuration(app.durata || 60)
 
     setOpen(true)
   }
@@ -140,6 +140,27 @@ export default function CalendarPage() {
     }
   }
 
+  async function checkOverlap(startDate, endDate, excludeId = null) {
+    const { data } = await supabase
+      .from('appointments')
+      .select('id, data, durata')
+
+    for (const app of data || []) {
+      if (excludeId && app.id === excludeId) continue
+
+      const existingStart = new Date(app.data)
+      const existingEnd = new Date(existingStart)
+      existingEnd.setMinutes(existingEnd.getMinutes() + (app.durata || 60))
+
+      const overlap =
+        startDate < existingEnd && endDate > existingStart
+
+      if (overlap) return true
+    }
+
+    return false
+  }
+
   async function saveAppointment() {
     if (!clientId || !time) return alert('Compila tutto')
 
@@ -147,6 +168,20 @@ export default function CalendarPage() {
     const [h, m] = time.split(':').map(Number)
     d.setHours(h)
     d.setMinutes(m)
+
+    const end = new Date(d)
+    end.setMinutes(end.getMinutes() + duration)
+
+    const hasOverlap = await checkOverlap(
+      d,
+      end,
+      editMode ? currentId : null
+    )
+
+    if (hasOverlap) {
+      alert('⚠️ Orario già occupato!')
+      return
+    }
 
     let appId = currentId
 
@@ -156,7 +191,7 @@ export default function CalendarPage() {
         .update({
           data: d,
           client_id: clientId,
-          durata: duration // ✅ salva durata
+          durata: duration
         })
         .eq('id', currentId)
 
@@ -171,7 +206,7 @@ export default function CalendarPage() {
           {
             data: d,
             client_id: clientId,
-            durata: duration // ✅ salva durata
+            durata: duration
           }
         ])
         .select()
@@ -191,21 +226,36 @@ export default function CalendarPage() {
     fetchAll()
   }
 
+  // 📲 WHATSAPP REMINDER
+  function sendWhatsAppReminder(app) {
+    const phone = app.clients?.telefono
+    if (!phone) {
+      alert('Numero cliente mancante')
+      return
+    }
+
+    const date = new Date(app.data)
+
+    const text = `Ciao ${app.clients?.nome} 💅
+ti ricordiamo il tuo appuntamento il ${date.toLocaleDateString('it-IT')} alle ${date.toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit'
+    })}.
+A presto!`
+
+    const url = `https://wa.me/${phone.replace('+', '')}?text=${encodeURIComponent(text)}`
+    window.open(url, '_blank')
+  }
+
   return (
     <div className="space-y-4">
 
-      {/* HEADER */}
       <div className="flex justify-between items-center">
         <button onClick={() => changeWeek(-1)}>←</button>
-
-        <h1 className="text-2xl font-bold text-pink-700">
-          Calendario
-        </h1>
-
+        <h1 className="text-2xl font-bold text-pink-700">Calendario</h1>
         <button onClick={() => changeWeek(1)}>→</button>
       </div>
 
-      {/* SCROLL ORIZZONTALE */}
       <div className="overflow-x-auto">
         <div className="flex gap-3 min-w-[900px]">
 
@@ -214,34 +264,23 @@ export default function CalendarPage() {
             const total = getDailyTotal(dayApps)
 
             return (
-              <div
-                key={i}
-                className={`p-3 rounded-2xl w-[140px] flex-shrink-0 ${getDayColor(total)}`}
-              >
+              <div key={i} className={`p-3 rounded-2xl w-[140px] flex-shrink-0 ${getDayColor(total)}`}>
 
-                {/* HEADER */}
                 <div className="flex justify-between items-center mb-2">
-
                   <div className="font-bold text-pink-700 text-sm">
                     {formatDay(day)}
                   </div>
 
-                  <button
-                    onClick={() => openNew(day)}
-                    className="text-pink-600"
-                  >
+                  <button onClick={() => openNew(day)} className="text-pink-600">
                     ➕
                   </button>
-
                 </div>
 
                 <div className="text-green-700 text-xs mb-2">
                   € {total}
                 </div>
 
-                {/* APPUNTAMENTI */}
                 <div className="space-y-2">
-
                   {dayApps.map(app => (
                     <div
                       key={app.id}
@@ -265,9 +304,19 @@ export default function CalendarPage() {
                         {app.durata || 60} min
                       </div>
 
+                      {/* 📲 REMINDER */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          sendWhatsAppReminder(app)
+                        }}
+                        className="text-xs bg-green-500 text-white px-2 py-1 rounded mt-1 w-full"
+                      >
+                        📲 Reminder
+                      </button>
+
                     </div>
                   ))}
-
                 </div>
 
               </div>
@@ -277,7 +326,6 @@ export default function CalendarPage() {
         </div>
       </div>
 
-      {/* MODALE */}
       {open && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
 
@@ -307,7 +355,6 @@ export default function CalendarPage() {
               className="w-full border p-3 rounded-xl"
             />
 
-            {/* 🔥 DURATA */}
             <input
               type="number"
               value={duration}
