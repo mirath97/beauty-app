@@ -8,9 +8,13 @@ export default function DayView() {
   const searchParams = useSearchParams()
   const dateParam = searchParams.get('date')
 
-  const [selectedDate, setSelectedDate] = useState(
-    dateParam ? new Date(dateParam) : new Date()
-  )
+  function getSafeDate(dateParam) {
+    if (!dateParam) return new Date()
+    const d = new Date(dateParam)
+    return isNaN(d.getTime()) ? new Date() : d
+  }
+
+  const [selectedDate, setSelectedDate] = useState(getSafeDate(dateParam))
 
   const [appointments, setAppointments] = useState([])
   const [clients, setClients] = useState([])
@@ -79,10 +83,10 @@ export default function DayView() {
     setCurrentId(app.id)
 
     const d = new Date(app.data)
+
     setClientId(app.client_id)
     setTime(d.toTimeString().slice(0, 5))
     setDuration(app.durata || 60)
-
     setSelectedServices(app.appointment_services.map(s => s.services))
 
     setOpen(true)
@@ -97,6 +101,8 @@ export default function DayView() {
   }
 
   async function saveAppointment() {
+    if (!clientId || !time) return alert('Compila tutto')
+
     const d = new Date(selectedDate)
     const [h, m] = time.split(':').map(Number)
     d.setHours(h)
@@ -134,15 +140,21 @@ export default function DayView() {
         Timeline Giornaliera
       </h1>
 
+      {/* DATA */}
       <input
         type="date"
-        value={selectedDate.toISOString().split('T')[0]}
-        onChange={e => setSelectedDate(new Date(e.target.value))}
+        value={
+          selectedDate instanceof Date && !isNaN(selectedDate)
+            ? selectedDate.toISOString().split('T')[0]
+            : ''
+        }
+        onChange={e => setSelectedDate(getSafeDate(e.target.value))}
         className="mb-4 border p-2 rounded"
       />
 
       <div className="flex">
 
+        {/* ORARI */}
         <div className="w-16 text-xs text-gray-400">
           {Array.from({ length: END_HOUR - START_HOUR }).map((_, i) => (
             <div key={i} style={{ height: HOUR_HEIGHT }}>
@@ -151,6 +163,7 @@ export default function DayView() {
           ))}
         </div>
 
+        {/* TIMELINE */}
         <div
           className="flex-1 relative bg-white border rounded-xl"
           style={{ height: (END_HOUR - START_HOUR) * HOUR_HEIGHT }}
