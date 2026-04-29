@@ -209,7 +209,7 @@ Appuntamento il ${date.toLocaleDateString('it-IT')} alle ${date.toLocaleTimeStri
           const total = getDailyTotal(dayApps)
 
           return (
-            <div key={i} className="bg-gray-100 p-2 rounded flex flex-col min-h-[250px]">
+            <div key={i} className="bg-gray-100 p-2 rounded flex flex-col min-h-[260px]">
 
               <div className="flex justify-between">
                 <div className="text-sm font-bold">
@@ -225,27 +225,52 @@ Appuntamento il ${date.toLocaleDateString('it-IT')} alle ${date.toLocaleTimeStri
 
               <div className="flex-1 overflow-y-auto space-y-2">
 
-                {dayApps.map(app => (
-                  <div
-                    key={app.id}
-                    onClick={() => openEdit(app)}
-                    className="bg-white p-2 rounded text-xs shadow cursor-pointer"
-                  >
-                    <div>{app.clients?.nome}</div>
-                    <div>€ {getTotal(app)}</div>
-                    <div>{app.durata} min</div>
+                {dayApps.map(app => {
+                  const start = new Date(app.data)
 
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        sendWhatsAppReminder(app)
-                      }}
-                      className="mt-1 bg-green-500 text-white w-full text-xs rounded"
+                  return (
+                    <div
+                      key={app.id}
+                      onClick={() => openEdit(app)}
+                      className="bg-white p-3 rounded-xl text-xs shadow cursor-pointer border"
                     >
-                      📲 WhatsApp
-                    </button>
-                  </div>
-                ))}
+                      <div className="flex justify-between">
+                        <div className="font-bold text-pink-700">
+                          {start.toLocaleTimeString([], {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </div>
+
+                        <div className="text-gray-400">
+                          {app.durata} min
+                        </div>
+                      </div>
+
+                      <div className="font-semibold">
+                        {app.clients?.nome}
+                      </div>
+
+                      <div className="text-gray-500 text-[11px]">
+                        {app.appointment_services.map(s => s.services.nome).join(', ')}
+                      </div>
+
+                      <div className="text-green-600 font-bold">
+                        € {getTotal(app)}
+                      </div>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          sendWhatsAppReminder(app)
+                        }}
+                        className="mt-2 bg-green-500 text-white w-full text-xs rounded py-1"
+                      >
+                        📲 WhatsApp
+                      </button>
+                    </div>
+                  )
+                })}
 
               </div>
 
