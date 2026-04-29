@@ -19,13 +19,17 @@ export default function RootLayout({ children }) {
             </h1>
           </div>
 
-          {/* NAV */}
-          <nav className="flex justify-around bg-white p-3 shadow text-xl">
+          {/* NAV COMPLETA */}
+          <nav className="flex flex-wrap justify-around bg-white p-3 shadow text-xl gap-2">
+
             <Link href="/calendar">📅</Link>
+            <Link href="/calendar/new">➕</Link>
             <Link href="/clients">👤</Link>
-            <Link href="/dashboard/incassi">💰</Link>
             <Link href="/services">💅</Link>
+            <Link href="/dashboard/incassi">💰</Link>
+            <Link href="/dashboard/ai">🧠</Link>
             <Link href="/reminders">📲</Link>
+
           </nav>
 
           {/* CONTENUTO */}
