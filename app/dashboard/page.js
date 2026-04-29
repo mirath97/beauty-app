@@ -1,78 +1,144 @@
 'use client'
 
-import Link from 'next/link'
+import { useEffect, useState } from 'react'
+import { supabase } from '@/lib/supabase'
 
-export default function DashboardPage() {
+export default function Dashboard() {
+  const [appointments, setAppointments] = useState([])
+
+  useEffect(() => {
+    fetchData()
+  }, [])
+
+  async function fetchData() {
+    const { data } = await supabase
+      .from('appointments')
+      .select(`
+        id,
+        data,
+        appointment_services (
+          services (prezzo)
+        )
+      `)
+
+    setAppointments(data || [])
+  }
+
+  function getTotal(app) {
+    return app.appointment_services.reduce(
+      (acc, s) => acc + (s.services.prezzo || 0),
+      0
+    )
+  }
+
+  function isToday(date) {
+    const d = new Date(date)
+    const today = new Date()
+    return d.toDateString() === today.toDateString()
+  }
+
+  function isThisWeek(date) {
+    const d = new Date(date)
+    const now = new Date()
+
+    const first = now.getDate() - now.getDay() + 1
+    const start = new Date(now.setDate(first))
+    const end = new Date(start)
+    end.setDate(end.getDate() + 7)
+
+    return d >= start && d < end
+  }
+
+  function isThisMonth(date) {
+    const d = new Date(date)
+    const now = new Date()
+
+    return (
+      d.getMonth() === now.getMonth() &&
+      d.getFullYear() === now.getFullYear()
+    )
+  }
+
+  const todayTotal = appointments
+    .filter(a => isToday(a.data))
+    .reduce((tot, a) => tot + getTotal(a), 0)
+
+  const weekTotal = appointments
+    .filter(a => isThisWeek(a.data))
+    .reduce((tot, a) => tot + getTotal(a), 0)
+
+  const monthTotal = appointments
+    .filter(a => isThisMonth(a.data))
+    .reduce((tot, a) => tot + getTotal(a), 0)
+
+  function groupByDay() {
+    const map = {}
+
+    appointments.forEach(a => {
+      const key = new Date(a.data).toLocaleDateString('it-IT')
+
+      if (!map[key]) map[key] = 0
+      map[key] += getTotal(a)
+    })
+
+    return Object.entries(map).slice(-7).reverse()
+  }
+
   return (
-    <div className="space-y-6">
+    <div className="p-4 space-y-6">
 
-      {/* HEADER */}
-      <div>
-        <h1 className="text-3xl font-bold text-pink-700">
-          Dashboard
-        </h1>
-        <p className="text-gray-400">
-          Benvenuta nel gestionale
-        </p>
+      <h1 className="text-3xl font-bold text-pink-700">
+        Dashboard Incassi
+      </h1>
+
+      {/* TOTALI */}
+      <div className="grid grid-cols-3 gap-4">
+
+        <div className="bg-white p-4 rounded-2xl shadow text-center">
+          <div className="text-gray-400 text-sm">Oggi</div>
+          <div className="text-xl font-bold text-green-600">
+            € {todayTotal}
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-2xl shadow text-center">
+          <div className="text-gray-400 text-sm">Settimana</div>
+          <div className="text-xl font-bold text-green-600">
+            € {weekTotal}
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-2xl shadow text-center">
+          <div className="text-gray-400 text-sm">Mese</div>
+          <div className="text-xl font-bold text-green-600">
+            € {monthTotal}
+          </div>
+        </div>
+
       </div>
 
-      {/* CARD GRID */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* ULTIMI GIORNI */}
+      <div className="bg-white p-4 rounded-2xl shadow">
 
-        {/* CALENDARIO */}
-        <Link
-          href="/calendar"
-          className="bg-gradient-to-br from-pink-500 to-pink-400 text-white p-6 rounded-2xl shadow-lg"
-        >
-          <div className="text-3xl mb-2">📅</div>
-          <div className="text-lg font-semibold">
-            Calendario
-          </div>
-        </Link>
+        <h2 className="font-bold mb-3 text-pink-600">
+          Ultimi giorni
+        </h2>
 
-        {/* CLIENTI */}
-        <Link
-          href="/clients"
-          className="bg-white p-6 rounded-2xl shadow border border-pink-100"
-        >
-          <div className="text-3xl mb-2">👤</div>
-          <div className="text-lg font-semibold text-pink-700">
-            Clienti
-          </div>
-        </Link>
+        <div className="space-y-2">
 
-        {/* INCASSI */}
-        <Link
-          href="/dashboard/incassi"
-          className="bg-white p-6 rounded-2xl shadow border border-pink-100"
-        >
-          <div className="text-3xl mb-2">💰</div>
-          <div className="text-lg font-semibold text-pink-700">
-            Incassi
-          </div>
-        </Link>
+          {groupByDay().map(([day, total], i) => (
+            <div
+              key={i}
+              className="flex justify-between border-b pb-1"
+            >
+              <div>{day}</div>
+              <div className="font-semibold text-green-600">
+                € {total}
+              </div>
+            </div>
+          ))}
 
-        {/* AI */}
-        <Link
-          href="/dashboard/ai"
-          className="bg-white p-6 rounded-2xl shadow border border-pink-100"
-        >
-          <div className="text-3xl mb-2">🧠</div>
-          <div className="text-lg font-semibold text-pink-700">
-            AI Business
-          </div>
-        </Link>
-
-        {/* REMINDER */}
-        <Link
-          href="/reminders"
-          className="bg-white p-6 rounded-2xl shadow border border-pink-100"
-        >
-          <div className="text-3xl mb-2">📲</div>
-          <div className="text-lg font-semibold text-pink-700">
-            Reminder
-          </div>
-        </Link>
+        </div>
 
       </div>
 
