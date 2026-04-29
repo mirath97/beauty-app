@@ -48,8 +48,11 @@ export default function CalendarPage() {
 
   async function fetchAll() {
     const start = new Date(weekStart)
+    start.setHours(0, 0, 0, 0)
+
     const end = new Date(weekStart)
-    end.setDate(end.getDate() + 7)
+    end.setDate(end.getDate() + 6)
+    end.setHours(23, 59, 59, 999)
 
     const { data: apps } = await supabase
       .from('appointments')
@@ -65,7 +68,7 @@ export default function CalendarPage() {
       `)
       .gte('data', start.toISOString())
       .lte('data', end.toISOString())
-      .order('data')
+      .order('data', { ascending: true })
 
     const { data: clientsData } = await supabase.from('clients').select('*')
     const { data: servicesData } = await supabase.from('services').select('*')
@@ -169,6 +172,21 @@ export default function CalendarPage() {
     fetchAll()
   }
 
+  function sendWhatsAppReminder(app) {
+    const phone = app.clients?.telefono
+    if (!phone) return alert('Numero mancante')
+
+    const date = new Date(app.data)
+
+    const text = `Ciao ${app.clients?.nome} 💅
+Appuntamento il ${date.toLocaleDateString('it-IT')} alle ${date.toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit'
+    })}`
+
+    window.open(`https://wa.me/${phone.replace('+', '')}?text=${encodeURIComponent(text)}`)
+  }
+
   const filteredClients = clients.filter(c =>
     c.nome.toLowerCase().includes(clientSearch.toLowerCase())
   )
@@ -179,11 +197,7 @@ export default function CalendarPage() {
       {/* HEADER */}
       <div className="flex justify-between items-center">
         <button onClick={() => changeWeek(-1)}>←</button>
-
-        <h1 className="text-xl font-bold text-pink-700">
-          Calendario
-        </h1>
-
+        <h1 className="text-xl font-bold text-pink-700">Calendario</h1>
         <button onClick={() => changeWeek(1)}>→</button>
       </div>
 
@@ -220,6 +234,16 @@ export default function CalendarPage() {
                     <div>{app.clients?.nome}</div>
                     <div>€ {getTotal(app)}</div>
                     <div>{app.durata} min</div>
+
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        sendWhatsAppReminder(app)
+                      }}
+                      className="mt-1 bg-green-500 text-white w-full text-xs rounded"
+                    >
+                      📲 WhatsApp
+                    </button>
                   </div>
                 ))}
 
