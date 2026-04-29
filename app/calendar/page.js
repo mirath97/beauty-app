@@ -2,11 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { useRouter } from 'next/navigation'
 
 export default function CalendarPage() {
-  const router = useRouter()
-
   const [appointments, setAppointments] = useState([])
   const [weekStart, setWeekStart] = useState(getStartOfWeek(new Date()))
 
@@ -71,23 +68,10 @@ export default function CalendarPage() {
     setServices(servicesData || [])
   }
 
-  function changeWeek(offset) {
-    const d = new Date(weekStart)
-    d.setDate(d.getDate() + offset * 7)
-    setWeekStart(d)
-  }
-
   function getAppointmentsForDay(day) {
     return appointments.filter(app => {
       const d = new Date(app.data)
       return d.toDateString() === day.toDateString()
-    })
-  }
-
-  function formatDay(d) {
-    return d.toLocaleDateString('it-IT', {
-      weekday: 'short',
-      day: 'numeric'
     })
   }
 
@@ -100,18 +84,6 @@ export default function CalendarPage() {
 
   function getDailyTotal(dayApps) {
     return dayApps.reduce((tot, app) => tot + getTotal(app), 0)
-  }
-
-  function getDayColor(total) {
-    if (total === 0) return 'bg-gray-100'
-    if (total < 80) return 'bg-red-100'
-    if (total < 150) return 'bg-yellow-100'
-    return 'bg-green-100'
-  }
-
-  function goToDay(day) {
-    const date = day.toISOString().split('T')[0]
-    router.push(`/calendar/day?date=${date}`)
   }
 
   function openNew(day) {
@@ -128,11 +100,11 @@ export default function CalendarPage() {
   function openEdit(app) {
     setEditMode(true)
     setCurrentId(app.id)
+
     setSelectedDate(new Date(app.data))
     setClientId(app.client_id)
 
     setSelectedServices(app.appointment_services.map(s => s.services))
-
     setTime(new Date(app.data).toTimeString().slice(0, 5))
     setDuration(app.durata || 60)
 
@@ -147,24 +119,6 @@ export default function CalendarPage() {
     }
   }
 
-  async function checkOverlap(startDate, endDate, excludeId = null) {
-    const { data } = await supabase
-      .from('appointments')
-      .select('id, data, durata')
-
-    for (const app of data || []) {
-      if (excludeId && app.id === excludeId) continue
-
-      const existingStart = new Date(app.data)
-      const existingEnd = new Date(existingStart)
-      existingEnd.setMinutes(existingEnd.getMinutes() + (app.durata || 60))
-
-      if (startDate < existingEnd && endDate > existingStart) return true
-    }
-
-    return false
-  }
-
   async function saveAppointment() {
     if (!clientId || !time) return alert('Compila tutto')
 
@@ -173,20 +127,16 @@ export default function CalendarPage() {
     d.setHours(h)
     d.setMinutes(m)
 
-    const end = new Date(d)
-    end.setMinutes(end.getMinutes() + duration)
-
-    if (await checkOverlap(d, end, editMode ? currentId : null)) {
-      alert('Orario occupato')
-      return
-    }
-
     let appId = currentId
 
     if (editMode) {
       await supabase
         .from('appointments')
-        .update({ data: d, client_id: clientId, durata: duration })
+        .update({
+          data: d,
+          client_id: clientId,
+          durata: duration
+        })
         .eq('id', currentId)
 
       await supabase
@@ -196,7 +146,13 @@ export default function CalendarPage() {
     } else {
       const { data } = await supabase
         .from('appointments')
-        .insert([{ data: d, client_id: clientId, durata: duration }])
+        .insert([
+          {
+            data: d,
+            client_id: clientId,
+            durata: duration
+          }
+        ])
         .select()
         .single()
 
@@ -230,13 +186,11 @@ Appuntamento il ${date.toLocaleDateString('it-IT')} alle ${date.toLocaleTimeStri
   }
 
   return (
-    <div className="space-y-4 p-4">
+    <div className="p-4 space-y-4">
 
-      <div className="flex justify-between">
-        <button onClick={() => changeWeek(-1)}>←</button>
-        <h1 className="text-2xl font-bold text-pink-700">Calendario</h1>
-        <button onClick={() => changeWeek(1)}>→</button>
-      </div>
+      <h1 className="text-2xl font-bold text-pink-700 text-center">
+        Calendario
+      </h1>
 
       <div className="grid grid-cols-7 gap-2">
 
@@ -245,25 +199,27 @@ Appuntamento il ${date.toLocaleDateString('it-IT')} alle ${date.toLocaleTimeStri
           const total = getDailyTotal(dayApps)
 
           return (
-            <div
-              key={i}
-              onDoubleClick={() => goToDay(day)}
-              className={`p-2 rounded-xl min-h-[300px] flex flex-col cursor-pointer ${getDayColor(total)}`}
-            >
-              <div className="flex justify-between">
-                <div>{formatDay(day)}</div>
+            <div key={i} className="bg-gray-100 rounded-xl p-2 flex flex-col min-h-[300px]">
+
+              <div className="flex justify-between items-center">
+                <div className="font-bold text-sm">
+                  {day.toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric' })}
+                </div>
+
                 <button onClick={() => openNew(day)}>➕</button>
               </div>
 
-              <div className="text-green-600 text-xs">€ {total}</div>
+              <div className="text-green-600 text-xs mb-2">
+                € {total}
+              </div>
 
-              <div className="space-y-2 mt-2">
+              <div className="flex-1 overflow-y-auto space-y-2">
 
                 {dayApps.map(app => (
                   <div
                     key={app.id}
                     onClick={() => openEdit(app)}
-                    className="bg-white p-2 rounded text-xs shadow"
+                    className="bg-white p-2 rounded shadow text-xs cursor-pointer"
                   >
                     <div>{app.clients?.nome}</div>
                     <div>€ {getTotal(app)}</div>
@@ -274,7 +230,7 @@ Appuntamento il ${date.toLocaleDateString('it-IT')} alle ${date.toLocaleTimeStri
                         e.stopPropagation()
                         sendWhatsAppReminder(app)
                       }}
-                      className="bg-green-500 text-white w-full text-xs mt-1 rounded"
+                      className="mt-1 bg-green-500 text-white w-full text-xs rounded"
                     >
                       📲
                     </button>
@@ -282,11 +238,70 @@ Appuntamento il ${date.toLocaleDateString('it-IT')} alle ${date.toLocaleTimeStri
                 ))}
 
               </div>
+
             </div>
           )
         })}
 
       </div>
+
+      {open && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
+
+          <div className="bg-white p-6 rounded-xl w-[90%] max-w-md space-y-4">
+
+            <select
+              value={clientId}
+              onChange={e => setClientId(e.target.value)}
+              className="w-full border p-2 rounded"
+            >
+              <option value="">Cliente</option>
+              {clients.map(c => (
+                <option key={c.id} value={c.id}>{c.nome}</option>
+              ))}
+            </select>
+
+            <input
+              type="time"
+              value={time}
+              onChange={e => setTime(e.target.value)}
+              className="w-full border p-2 rounded"
+            />
+
+            <input
+              type="number"
+              value={duration}
+              onChange={e => setDuration(Number(e.target.value))}
+              className="w-full border p-2 rounded"
+            />
+
+            <div className="max-h-40 overflow-y-auto space-y-1">
+              {services.map(s => (
+                <div
+                  key={s.id}
+                  onClick={() => toggleService(s)}
+                  className={`p-2 rounded cursor-pointer ${
+                    selectedServices.find(x => x.id === s.id)
+                      ? 'bg-pink-200'
+                      : 'bg-gray-100'
+                  }`}
+                >
+                  {s.nome}
+                </div>
+              ))}
+            </div>
+
+            <button
+              onClick={saveAppointment}
+              className="w-full bg-pink-600 text-white p-2 rounded"
+            >
+              Salva
+            </button>
+
+          </div>
+
+        </div>
+      )}
 
     </div>
   )
