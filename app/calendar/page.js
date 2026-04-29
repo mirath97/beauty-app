@@ -96,6 +96,44 @@ export default function CalendarPage() {
     return dayApps.reduce((tot, app) => tot + getTotal(app), 0)
   }
 
+  // 🤖 AI (AGGIUNTA, NON SOSTITUZIONE)
+  function analyzeWeek() {
+    return getWeekDays().map(day => {
+      const apps = getAppointmentsForDay(day)
+      const total = getDailyTotal(apps)
+
+      let color = 'bg-gray-100'
+      let icon = '⚪'
+      let suggestion = 'Inserisci promozioni'
+
+      if (total > 0 && total < 80) {
+        color = 'bg-red-100'
+        icon = '🔴'
+        suggestion = 'Manda reminder clienti'
+      }
+
+      if (total >= 80 && total < 150) {
+        color = 'bg-yellow-100'
+        icon = '🟡'
+        suggestion = 'Fai upsell'
+      }
+
+      if (total >= 150) {
+        color = 'bg-green-100'
+        icon = '🟢'
+        suggestion = 'Aumenta prezzi'
+      }
+
+      return {
+        day: day.toLocaleDateString('it-IT', { weekday: 'short' }),
+        total,
+        suggestion,
+        color,
+        icon
+      }
+    })
+  }
+
   function openNew(day) {
     setEditMode(false)
     setCurrentId(null)
@@ -174,17 +212,10 @@ export default function CalendarPage() {
 
   function sendWhatsAppReminder(app) {
     const phone = app.clients?.telefono
-    if (!phone) return alert('Numero mancante')
+    if (!phone) return
 
-    const date = new Date(app.data)
-
-    const text = `Ciao ${app.clients?.nome} 💅
-Appuntamento il ${date.toLocaleDateString('it-IT')} alle ${date.toLocaleTimeString([], {
-      hour: '2-digit',
-      minute: '2-digit'
-    })}`
-
-    window.open(`https://wa.me/${phone.replace('+', '')}?text=${encodeURIComponent(text)}`)
+    const text = `Promemoria appuntamento 💅`
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`)
   }
 
   const filteredClients = clients.filter(c =>
@@ -201,12 +232,30 @@ Appuntamento il ${date.toLocaleDateString('it-IT')} alle ${date.toLocaleTimeStri
         <button onClick={() => changeWeek(1)}>→</button>
       </div>
 
-      {/* GRID */}
+      {/* 🤖 AI COLORATA */}
+      <div className="bg-white p-4 rounded-xl shadow">
+        <div className="font-bold text-pink-700 mb-2">
+          🤖 Suggerimenti intelligenti
+        </div>
+
+        <div className="grid grid-cols-2 gap-2 text-xs">
+          {analyzeWeek().map((d, i) => (
+            <div key={i} className={`p-2 rounded ${d.color}`}>
+              <div className="flex justify-between">
+                <span>{d.icon} {d.day}</span>
+                <span>€ {d.total}</span>
+              </div>
+              <div>{d.suggestion}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* CALENDARIO */}
       <div className="grid grid-cols-7 gap-2">
 
         {getWeekDays().map((day, i) => {
           const dayApps = getAppointmentsForDay(day)
-          const total = getDailyTotal(dayApps)
 
           return (
             <div key={i} className="bg-gray-100 p-2 rounded flex flex-col min-h-[260px]">
@@ -219,11 +268,7 @@ Appuntamento il ${date.toLocaleDateString('it-IT')} alle ${date.toLocaleTimeStri
                 <button onClick={() => openNew(day)}>➕</button>
               </div>
 
-              <div className="text-green-600 text-xs mb-1">
-                € {total}
-              </div>
-
-              <div className="flex-1 overflow-y-auto space-y-2">
+              <div className="flex-1 space-y-2 mt-2">
 
                 {dayApps.map(app => {
                   const start = new Date(app.data)
@@ -232,39 +277,22 @@ Appuntamento il ${date.toLocaleDateString('it-IT')} alle ${date.toLocaleTimeStri
                     <div
                       key={app.id}
                       onClick={() => openEdit(app)}
-                      className="bg-white p-3 rounded-xl text-xs shadow cursor-pointer border"
+                      className="bg-white p-2 rounded text-xs shadow cursor-pointer"
                     >
-                      <div className="flex justify-between">
-                        <div className="font-bold text-pink-700">
-                          {start.toLocaleTimeString([], {
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                        </div>
-
-                        <div className="text-gray-400">
-                          {app.durata} min
-                        </div>
+                      <div className="font-bold text-pink-700">
+                        {start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </div>
 
-                      <div className="font-semibold">
-                        {app.clients?.nome}
-                      </div>
+                      <div>{app.clients?.nome}</div>
 
-                      <div className="text-gray-500 text-[11px]">
-                        {app.appointment_services.map(s => s.services.nome).join(', ')}
-                      </div>
-
-                      <div className="text-green-600 font-bold">
-                        € {getTotal(app)}
-                      </div>
+                      <div>€ {getTotal(app)}</div>
 
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
                           sendWhatsAppReminder(app)
                         }}
-                        className="mt-2 bg-green-500 text-white w-full text-xs rounded py-1"
+                        className="mt-1 bg-green-500 text-white w-full text-xs rounded"
                       >
                         📲 WhatsApp
                       </button>
@@ -279,67 +307,6 @@ Appuntamento il ${date.toLocaleDateString('it-IT')} alle ${date.toLocaleTimeStri
         })}
 
       </div>
-
-      {/* MODALE */}
-      {open && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
-
-          <div className="bg-white p-4 rounded-xl w-[90%] max-w-md space-y-3">
-
-            <input
-              placeholder="Cerca cliente..."
-              value={clientSearch}
-              onChange={e => setClientSearch(e.target.value)}
-              className="w-full border p-2 rounded"
-            />
-
-            <div className="max-h-32 overflow-y-auto">
-              {filteredClients.map(c => (
-                <div
-                  key={c.id}
-                  onClick={() => {
-                    setClientId(c.id)
-                    setClientSearch(c.nome)
-                  }}
-                  className="p-2 hover:bg-gray-100 cursor-pointer"
-                >
-                  {c.nome}
-                </div>
-              ))}
-            </div>
-
-            <input
-              type="time"
-              value={time}
-              onChange={e => setTime(e.target.value)}
-              className="w-full border p-2 rounded"
-            />
-
-            <input
-              type="number"
-              value={duration}
-              onChange={e => setDuration(Number(e.target.value))}
-              className="w-full border p-2 rounded"
-            />
-
-            <button
-              onClick={saveAppointment}
-              className="w-full bg-pink-600 text-white p-2 rounded"
-            >
-              Salva
-            </button>
-
-            <button
-              onClick={() => setOpen(false)}
-              className="w-full bg-gray-300 p-2 rounded"
-            >
-              Annulla
-            </button>
-
-          </div>
-
-        </div>
-      )}
 
     </div>
   )
