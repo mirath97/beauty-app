@@ -1,5 +1,8 @@
 'use client'
 
+// 🔥 QUESTO BLOCCA IL PRERENDER (FIX VERCEL)
+export const dynamic = 'force-dynamic'
+
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useSearchParams } from 'next/navigation'
@@ -21,7 +24,6 @@ export default function DayView() {
   const [services, setServices] = useState([])
 
   const [open, setOpen] = useState(false)
-  const [editMode, setEditMode] = useState(false)
   const [currentId, setCurrentId] = useState(null)
 
   const [clientId, setClientId] = useState('')
@@ -79,7 +81,6 @@ export default function DayView() {
   }
 
   function openEdit(app) {
-    setEditMode(true)
     setCurrentId(app.id)
 
     const d = new Date(app.data)
@@ -101,8 +102,6 @@ export default function DayView() {
   }
 
   async function saveAppointment() {
-    if (!clientId || !time) return alert('Compila tutto')
-
     const d = new Date(selectedDate)
     const [h, m] = time.split(':').map(Number)
     d.setHours(h)
@@ -140,7 +139,6 @@ export default function DayView() {
         Timeline Giornaliera
       </h1>
 
-      {/* DATA */}
       <input
         type="date"
         value={
@@ -154,7 +152,6 @@ export default function DayView() {
 
       <div className="flex">
 
-        {/* ORARI */}
         <div className="w-16 text-xs text-gray-400">
           {Array.from({ length: END_HOUR - START_HOUR }).map((_, i) => (
             <div key={i} style={{ height: HOUR_HEIGHT }}>
@@ -163,7 +160,6 @@ export default function DayView() {
           ))}
         </div>
 
-        {/* TIMELINE */}
         <div
           className="flex-1 relative bg-white border rounded-xl"
           style={{ height: (END_HOUR - START_HOUR) * HOUR_HEIGHT }}
@@ -202,22 +198,16 @@ export default function DayView() {
 
       </div>
 
-      {/* MODALE */}
       {open && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
 
           <div className="bg-white p-6 rounded-2xl w-[90%] max-w-md space-y-4">
-
-            <h2 className="text-xl font-bold text-pink-700">
-              Modifica appuntamento
-            </h2>
 
             <select
               value={clientId}
               onChange={e => setClientId(e.target.value)}
               className="w-full border p-3 rounded-xl"
             >
-              <option value="">Cliente</option>
               {clients.map(c => (
                 <option key={c.id} value={c.id}>
                   {c.nome}
@@ -238,22 +228,6 @@ export default function DayView() {
               onChange={e => setDuration(Number(e.target.value))}
               className="w-full border p-3 rounded-xl"
             />
-
-            <div className="space-y-2 max-h-40 overflow-y-auto">
-              {services.map(s => (
-                <div
-                  key={s.id}
-                  onClick={() => toggleService(s)}
-                  className={`p-2 rounded cursor-pointer ${
-                    selectedServices.find(x => x.id === s.id)
-                      ? 'bg-pink-200'
-                      : 'bg-gray-100'
-                  }`}
-                >
-                  {s.nome}
-                </div>
-              ))}
-            </div>
 
             <button
               onClick={saveAppointment}
