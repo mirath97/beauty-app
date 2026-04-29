@@ -1,75 +1,77 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
-
-export default function Dashboard() {
-  const [appointments, setAppointments] = useState([])
-  const [month, setMonth] = useState(new Date())
-
-  useEffect(() => {
-    fetchData()
-  }, [month])
-
-  async function fetchData() {
-    const start = new Date(month.getFullYear(), month.getMonth(), 1)
-    const end = new Date(month.getFullYear(), month.getMonth() + 1, 0)
-
-    const { data } = await supabase
-      .from('appointments')
-      .select(`
-        data,
-        appointment_services (
-          services (prezzo)
-        )
-      `)
-      .gte('data', start.toISOString())
-      .lte('data', end.toISOString())
-
-    setAppointments(data || [])
-  }
-
-  function getTotal() {
-    return appointments.reduce((tot, app) => {
-      const sum = app.appointment_services.reduce(
-        (acc, s) => acc + (s.services.prezzo || 0),
-        0
-      )
-      return tot + sum
-    }, 0)
-  }
-
-  function changeMonth(offset) {
-    const d = new Date(month)
-    d.setMonth(d.getMonth() + offset)
-    setMonth(d)
-  }
-
+export default function DashboardPage() {
   return (
-    <div className="p-4 space-y-6">
+    <div className="space-y-6">
 
-      <div className="flex justify-between items-center">
+      {/* HEADER */}
+      <div>
         <h1 className="text-3xl font-bold text-pink-700">
-          Incassi
+          Dashboard
         </h1>
-
-        <div className="flex gap-2">
-          <button onClick={() => changeMonth(-1)}>←</button>
-          <div>
-            {month.toLocaleDateString('it-IT', {
-              month: 'long',
-              year: 'numeric'
-            })}
-          </div>
-          <button onClick={() => changeMonth(1)}>→</button>
-        </div>
+        <p className="text-gray-400">
+          Benvenuta nel gestionale
+        </p>
       </div>
 
-      <div className="bg-white p-6 rounded-2xl shadow">
-        <h2 className="text-pink-600">Totale mese</h2>
-        <p className="text-3xl font-bold">
-          € {getTotal()}
-        </p>
+      {/* CARD GRID */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+        {/* CALENDARIO */}
+        <a
+          href="/calendar"
+          className="bg-gradient-to-br from-pink-500 to-pink-400 text-white p-6 rounded-2xl shadow-lg"
+        >
+          <div className="text-3xl mb-2">📅</div>
+          <div className="text-lg font-semibold">
+            Calendario
+          </div>
+        </a>
+
+        {/* CLIENTI */}
+        <a
+          href="/clients"
+          className="bg-white p-6 rounded-2xl shadow border border-pink-100"
+        >
+          <div className="text-3xl mb-2">👤</div>
+          <div className="text-lg font-semibold text-pink-700">
+            Clienti
+          </div>
+        </a>
+
+        {/* INCASSI */}
+        <a
+          href="/dashboard"
+          className="bg-white p-6 rounded-2xl shadow border border-pink-100"
+        >
+          <div className="text-3xl mb-2">💰</div>
+          <div className="text-lg font-semibold text-pink-700">
+            Incassi
+          </div>
+        </a>
+
+        {/* AI */}
+        <a
+          href="/dashboard/ai"
+          className="bg-white p-6 rounded-2xl shadow border border-pink-100"
+        >
+          <div className="text-3xl mb-2">🧠</div>
+          <div className="text-lg font-semibold text-pink-700">
+            AI Business
+          </div>
+        </a>
+
+        {/* REMINDER */}
+        <a
+          href="/reminders"
+          className="bg-white p-6 rounded-2xl shadow border border-pink-100"
+        >
+          <div className="text-3xl mb-2">📲</div>
+          <div className="text-lg font-semibold text-pink-700">
+            Reminder
+          </div>
+        </a>
+
       </div>
 
     </div>
