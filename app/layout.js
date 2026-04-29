@@ -25,7 +25,7 @@ export default function RootLayout({ children }) {
 
             <Link href="/calendar">📅</Link>
             <Link href="/clients">👤</Link>
-            <Link href="/dashboard">💰</Link>
+            <Link href="/dashboard/incassi">💰</Link>
             <Link href="/dashboard/ai">🧠</Link>
             <Link href="/reminders">📲</Link>
 

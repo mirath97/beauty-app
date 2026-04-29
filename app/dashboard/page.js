@@ -1,5 +1,7 @@
 'use client'
 
+import Link from 'next/link'
+
 export default function DashboardPage() {
   return (
     <div className="space-y-6">
@@ -18,7 +20,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
         {/* CALENDARIO */}
-        <a
+        <Link
           href="/calendar"
           className="bg-gradient-to-br from-pink-500 to-pink-400 text-white p-6 rounded-2xl shadow-lg"
         >
@@ -26,10 +28,10 @@ export default function DashboardPage() {
           <div className="text-lg font-semibold">
             Calendario
           </div>
-        </a>
+        </Link>
 
         {/* CLIENTI */}
-        <a
+        <Link
           href="/clients"
           className="bg-white p-6 rounded-2xl shadow border border-pink-100"
         >
@@ -37,21 +39,21 @@ export default function DashboardPage() {
           <div className="text-lg font-semibold text-pink-700">
             Clienti
           </div>
-        </a>
+        </Link>
 
         {/* INCASSI */}
-        <a
-          href="/dashboard"
+        <Link
+          href="/dashboard/incassi"
           className="bg-white p-6 rounded-2xl shadow border border-pink-100"
         >
           <div className="text-3xl mb-2">💰</div>
           <div className="text-lg font-semibold text-pink-700">
             Incassi
           </div>
-        </a>
+        </Link>
 
         {/* AI */}
-        <a
+        <Link
           href="/dashboard/ai"
           className="bg-white p-6 rounded-2xl shadow border border-pink-100"
         >
@@ -59,10 +61,10 @@ export default function DashboardPage() {
           <div className="text-lg font-semibold text-pink-700">
             AI Business
           </div>
-        </a>
+        </Link>
 
         {/* REMINDER */}
-        <a
+        <Link
           href="/reminders"
           className="bg-white p-6 rounded-2xl shadow border border-pink-100"
         >
@@ -70,7 +72,7 @@ export default function DashboardPage() {
           <div className="text-lg font-semibold text-pink-700">
             Reminder
           </div>
-        </a>
+        </Link>
 
       </div>
 
