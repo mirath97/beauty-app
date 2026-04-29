@@ -5,50 +5,51 @@ import { supabase } from '@/lib/supabase'
 
 export default function ServicesPage() {
   const [services, setServices] = useState([])
+  const [grouped, setGrouped] = useState({})
 
   const [nome, setNome] = useState('')
   const [prezzo, setPrezzo] = useState('')
   const [durata, setDurata] = useState('')
-
-  const [selected, setSelected] = useState(null)
+  const [categoria, setCategoria] = useState('Unghie')
 
   useEffect(() => {
     fetchServices()
   }, [])
 
   async function fetchServices() {
-    const { data } = await supabase
-      .from('services')
-      .select('*')
-      .order('nome')
+    const { data } = await supabase.from('services').select('*')
 
     setServices(data || [])
+
+    const groupedData = {}
+
+    ;(data || []).forEach(s => {
+      const cat = s.categoria || 'Altro'
+
+      if (!groupedData[cat]) groupedData[cat] = []
+      groupedData[cat].push(s)
+    })
+
+    setGrouped(groupedData)
   }
 
   async function addService() {
-    await supabase.from('services').insert({
-      nome,
-      prezzo: Number(prezzo),
-      durata: Number(durata)
-    })
+    if (!nome) return
+
+    await supabase.from('services').insert([
+      {
+        nome,
+        prezzo: Number(prezzo),
+        durata: Number(durata),
+        categoria
+      }
+    ])
 
     setNome('')
     setPrezzo('')
     setDurata('')
-    fetchServices()
-  }
+    setCategoria('Unghie')
 
-  async function updateService() {
-    await supabase
-      .from('services')
-      .update({
-        nome,
-        prezzo: Number(prezzo),
-        durata: Number(durata)
-      })
-      .eq('id', selected.id)
-
-    setSelected(null)
     fetchServices()
   }
 
@@ -61,75 +62,97 @@ export default function ServicesPage() {
     <div className="space-y-6">
 
       <h1 className="text-3xl font-bold text-pink-700">
-        Listino
+        Listino servizi
       </h1>
 
-      {/* AGGIUNGI */}
-      <div className="flex gap-2">
-        <input placeholder="Nome" value={nome} onChange={(e)=>setNome(e.target.value)} className="p-3 border rounded-xl"/>
-        <input placeholder="€" value={prezzo} onChange={(e)=>setPrezzo(e.target.value)} className="p-3 border rounded-xl"/>
-        <input placeholder="min" value={durata} onChange={(e)=>setDurata(e.target.value)} className="p-3 border rounded-xl"/>
+      {/* FORM */}
+      <div className="bg-white p-4 rounded-2xl shadow space-y-2">
 
-        <button onClick={addService} className="bg-pink-500 text-white px-4 rounded-xl">
-          +
+        <input
+          placeholder="Nome servizio"
+          value={nome}
+          onChange={e => setNome(e.target.value)}
+          className="w-full border p-2 rounded"
+        />
+
+        <input
+          placeholder="Prezzo"
+          value={prezzo}
+          onChange={e => setPrezzo(e.target.value)}
+          className="w-full border p-2 rounded"
+        />
+
+        <input
+          placeholder="Durata (minuti)"
+          value={durata}
+          onChange={e => setDurata(e.target.value)}
+          className="w-full border p-2 rounded"
+        />
+
+        {/* CATEGORIA */}
+        <select
+          value={categoria}
+          onChange={e => setCategoria(e.target.value)}
+          className="w-full border p-2 rounded"
+        >
+          <option>Unghie</option>
+          <option>Viso</option>
+          <option>Corpo</option>
+          <option>Ciglia</option>
+          <option>Altro</option>
+        </select>
+
+        <button
+          onClick={addService}
+          className="bg-pink-600 text-white w-full p-2 rounded-xl"
+        >
+          Aggiungi servizio
         </button>
+
       </div>
 
-      {/* LISTA */}
-      <div className="space-y-3">
-        {services.map(s => (
-          <div
-            key={s.id}
-            onClick={() => {
-              setSelected(s)
-              setNome(s.nome)
-              setPrezzo(s.prezzo)
-              setDurata(s.durata)
-            }}
-            className="p-4 bg-white rounded-2xl shadow border border-pink-100 cursor-pointer flex justify-between"
-          >
-            <div>
-              <div className="text-pink-700 font-semibold">{s.nome}</div>
-              <div className="text-sm text-gray-400">
-                € {s.prezzo} • {s.durata} min
-              </div>
+      {/* LISTA PER CATEGORIE */}
+      <div className="space-y-4">
+
+        {Object.keys(grouped).map(cat => (
+          <div key={cat}>
+
+            <h2 className="text-xl font-bold text-pink-600 mb-2">
+              {cat}
+            </h2>
+
+            <div className="space-y-2">
+
+              {grouped[cat].map(s => (
+                <div
+                  key={s.id}
+                  className="bg-white p-4 rounded-2xl shadow flex justify-between"
+                >
+                  <div>
+                    <div className="font-semibold">
+                      {s.nome}
+                    </div>
+                    <div className="text-sm text-gray-400">
+                      € {s.prezzo} • {s.durata} min
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => deleteService(s.id)}
+                    className="text-red-500"
+                  >
+                    Elimina
+                  </button>
+
+                </div>
+              ))}
+
             </div>
 
-            <button
-              onClick={(e)=>{
-                e.stopPropagation()
-                deleteService(s.id)
-              }}
-              className="text-red-400"
-            >
-              ✕
-            </button>
           </div>
         ))}
+
       </div>
-
-      {/* MODALE */}
-      {selected && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
-          <div className="bg-white p-6 rounded-2xl space-y-4">
-
-            <input value={nome} onChange={(e)=>setNome(e.target.value)} className="w-full p-3 border rounded-xl"/>
-            <input value={prezzo} onChange={(e)=>setPrezzo(e.target.value)} className="w-full p-3 border rounded-xl"/>
-            <input value={durata} onChange={(e)=>setDurata(e.target.value)} className="w-full p-3 border rounded-xl"/>
-
-            <div className="flex gap-2">
-              <button onClick={()=>setSelected(null)} className="flex-1 p-3 bg-gray-200 rounded-xl">
-                Chiudi
-              </button>
-
-              <button onClick={updateService} className="flex-1 p-3 bg-pink-500 text-white rounded-xl">
-                Salva
-              </button>
-            </div>
-
-          </div>
-        </div>
-      )}
 
     </div>
   )

@@ -29,6 +29,8 @@ export default function RootLayout({ children }) {
             <Link href="/dashboard/ai">🧠</Link>
             <Link href="/reminders">📲</Link>
 			<Link href="/dashboard/promo">🎯</Link>
+			<Link href="/services">💅</Link>
+			<Link href="/calendar/new">➕</Link>
 
           </nav>
 
