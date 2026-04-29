@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 
 export default function IncassiPage() {
   const [appointments, setAppointments] = useState([])
+  const [prevAppointments, setPrevAppointments] = useState([])
   const [month, setMonth] = useState(new Date())
 
   useEffect(() => {
@@ -15,24 +16,38 @@ export default function IncassiPage() {
     const start = new Date(month.getFullYear(), month.getMonth(), 1)
     const end = new Date(month.getFullYear(), month.getMonth() + 1, 0)
 
+    const prevStart = new Date(month.getFullYear(), month.getMonth() - 1, 1)
+    const prevEnd = new Date(month.getFullYear(), month.getMonth(), 0)
+
     const { data } = await supabase
       .from('appointments')
       .select(`
         data,
         clients (id, nome),
         appointment_services (
-          services (prezzo)
+          services (id, nome, prezzo)
         )
       `)
-      .gte('data', start.toISOString())
+      .gte('data', prevStart.toISOString())
       .lte('data', end.toISOString())
 
-    setAppointments(data || [])
+    const all = data || []
+
+    const current = []
+    const prev = []
+
+    all.forEach(app => {
+      const d = new Date(app.data)
+      if (d >= start && d <= end) current.push(app)
+      if (d >= prevStart && d <= prevEnd) prev.push(app)
+    })
+
+    setAppointments(current)
+    setPrevAppointments(prev)
   }
 
-  // 💰 totale mese
-  function getTotal() {
-    return appointments.reduce((tot, app) => {
+  function getTotal(apps) {
+    return apps.reduce((tot, app) => {
       const sum = app.appointment_services.reduce(
         (acc, s) => acc + (s.services.prezzo || 0),
         0
@@ -41,49 +56,54 @@ export default function IncassiPage() {
     }, 0)
   }
 
-  // 📅 guadagno giornaliero
-  function getDailyTotals() {
+  const currentTotal = getTotal(appointments)
+  const prevTotal = getTotal(prevAppointments)
+
+  const diff = currentTotal - prevTotal
+  const diffPercent = prevTotal > 0
+    ? ((diff / prevTotal) * 100).toFixed(0)
+    : 0
+
+  // 🎯 ANALISI SERVIZI
+  function analyzeServices() {
     const map = {}
+    const prevMap = {}
 
     appointments.forEach(app => {
-      const date = new Date(app.data).toLocaleDateString()
-
-      const total = app.appointment_services.reduce(
-        (acc, s) => acc + (s.services.prezzo || 0),
-        0
-      )
-
-      map[date] = (map[date] || 0) + total
+      app.appointment_services.forEach(s => {
+        const serv = s.services
+        map[serv.id] = map[serv.id] || { nome: serv.nome, count: 0 }
+        map[serv.id].count++
+      })
     })
 
-    return Object.entries(map).sort((a, b) => new Date(b[0]) - new Date(a[0]))
-  }
+    prevAppointments.forEach(app => {
+      app.appointment_services.forEach(s => {
+        const serv = s.services
+        prevMap[serv.id] = (prevMap[serv.id] || 0) + 1
+      })
+    })
 
-  // 👑 clienti top
-  function getTopClients() {
-    const map = {}
+    const suggestions = []
 
-    appointments.forEach(app => {
-      const client = app.clients
-      if (!client) return
+    const top = Object.values(map).sort((a,b)=>b.count-a.count)[0]
+    if (top) {
+      suggestions.push(`💡 Spingi ${top.nome}: è il più richiesto`)
+    }
 
-      const total = app.appointment_services.reduce(
-        (acc, s) => acc + (s.services.prezzo || 0),
-        0
-      )
+    Object.keys(map).forEach(id => {
+      const curr = map[id].count
+      const prev = prevMap[id] || 0
 
-      map[client.id] = map[client.id] || {
-        nome: client.nome,
-        totale: 0
+      if (prev > 0 && curr < prev) {
+        suggestions.push(`⚠️ ${map[id].nome} è in calo`)
       }
-
-      map[client.id].totale += total
     })
 
-    return Object.values(map)
-      .sort((a, b) => b.totale - a.totale)
-      .slice(0, 5)
+    return suggestions
   }
+
+  const suggestions = analyzeServices()
 
   function changeMonth(offset) {
     const d = new Date(month)
@@ -91,16 +111,13 @@ export default function IncassiPage() {
     setMonth(d)
   }
 
-  const dailyTotals = getDailyTotals()
-  const topClients = getTopClients()
-
   return (
     <div className="space-y-6">
 
       {/* HEADER */}
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-pink-700">
-          Incassi
+          Incassi PRO
         </h1>
 
         <div className="flex gap-2">
@@ -119,46 +136,48 @@ export default function IncassiPage() {
       <div className="bg-white p-6 rounded-2xl shadow">
         <h2 className="text-pink-600">Totale mese</h2>
         <p className="text-3xl font-bold">
-          € {getTotal()}
+          € {currentTotal}
+        </p>
+
+        <p className={`mt-2 font-semibold ${
+          diff >= 0 ? 'text-green-600' : 'text-red-500'
+        }`}>
+          {diff >= 0 ? '▲' : '▼'} {diff} € ({diffPercent}% rispetto al mese scorso)
         </p>
       </div>
 
-      {/* 📅 GIORNALIERO */}
-      <div className="bg-white p-6 rounded-2xl shadow space-y-3">
-        <h2 className="text-pink-700 font-semibold">
-          Guadagno giornaliero
+      {/* 📈 CONFRONTO */}
+      <div className="bg-white p-6 rounded-2xl shadow">
+        <h2 className="text-pink-700 font-semibold mb-2">
+          Confronto mese scorso
         </h2>
 
-        {dailyTotals.length === 0 && (
-          <div className="text-gray-400">Nessun dato</div>
-        )}
+        <div className="flex justify-between">
+          <span>Questo mese</span>
+          <span className="font-semibold">€ {currentTotal}</span>
+        </div>
 
-        {dailyTotals.map(([date, total], i) => (
-          <div key={i} className="flex justify-between border-b pb-2">
-            <span>{date}</span>
-            <span className="font-semibold text-pink-600">
-              € {total}
-            </span>
-          </div>
-        ))}
+        <div className="flex justify-between">
+          <span>Mese scorso</span>
+          <span className="font-semibold text-gray-500">
+            € {prevTotal}
+          </span>
+        </div>
       </div>
 
-      {/* 👑 CLIENTI TOP */}
-      <div className="bg-white p-6 rounded-2xl shadow space-y-3">
+      {/* 🎯 SUGGERIMENTI */}
+      <div className="bg-white p-6 rounded-2xl shadow space-y-2">
         <h2 className="text-pink-700 font-semibold">
-          Clienti più redditizi
+          Suggerimenti intelligenti
         </h2>
 
-        {topClients.length === 0 && (
-          <div className="text-gray-400">Nessun dato</div>
+        {suggestions.length === 0 && (
+          <div className="text-gray-400">Dati insufficienti</div>
         )}
 
-        {topClients.map((c, i) => (
-          <div key={i} className="flex justify-between border-b pb-2">
-            <span>{i + 1}. {c.nome}</span>
-            <span className="font-semibold text-pink-600">
-              € {c.totale}
-            </span>
+        {suggestions.map((s, i) => (
+          <div key={i} className="bg-pink-50 p-3 rounded-xl text-pink-700">
+            {s}
           </div>
         ))}
       </div>
