@@ -16,35 +16,68 @@ export default function RootLayout({ children }) {
 
   return (
     <html lang="it">
-      <body className="bg-gray-50">
+      <body className="bg-gray-100">
 
-        {/* 🔝 MENU */}
-        <nav className="flex gap-3 p-4 bg-white shadow sticky top-0 z-50">
+        <div className="flex min-h-screen">
 
-          {links.map(link => {
-            const active = pathname === link.href
+          {/* 🟣 SIDEBAR */}
+          <aside className="w-64 bg-white shadow-lg p-4 hidden md:block">
 
-            return (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={`px-4 py-2 rounded-xl text-sm font-medium transition ${
-                  active
-                    ? 'bg-pink-600 text-white'
-                    : 'bg-gray-100 hover:bg-gray-200'
-                }`}
-              >
-                {link.name}
-              </Link>
-            )
-          })}
+            <h1 className="text-xl font-bold text-pink-600 mb-6">
+              Beauty App 💅
+            </h1>
 
-        </nav>
+            <nav className="flex flex-col gap-2">
 
-        {/* 📦 CONTENUTO */}
-        <main className="p-4">
-          {children}
-        </main>
+              {links.map(link => {
+                const active = pathname === link.href
+
+                return (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    className={`px-4 py-2 rounded-xl text-sm font-medium transition ${
+                      active
+                        ? 'bg-pink-600 text-white'
+                        : 'hover:bg-gray-100'
+                    }`}
+                  >
+                    {link.name}
+                  </Link>
+                )
+              })}
+
+            </nav>
+
+          </aside>
+
+          {/* 📱 TOPBAR MOBILE */}
+          <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white shadow-lg flex justify-around p-2 z-50">
+
+            {links.map(link => {
+              const active = pathname === link.href
+
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={`text-xs ${
+                    active ? 'text-pink-600 font-bold' : 'text-gray-500'
+                  }`}
+                >
+                  {link.name.split(' ')[0]}
+                </Link>
+              )
+            })}
+
+          </div>
+
+          {/* 📦 CONTENUTO */}
+          <main className="flex-1 p-4 md:p-6 pb-16 md:pb-6">
+            {children}
+          </main>
+
+        </div>
 
       </body>
     </html>
