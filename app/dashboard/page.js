@@ -7,17 +7,10 @@ export default function Dashboard() {
   const [appointments, setAppointments] = useState([])
 
   useEffect(() => {
-    fetchToday()
+    fetchAll()
   }, [])
 
-  async function fetchToday() {
-    const today = new Date()
-    const start = new Date(today)
-    start.setHours(0,0,0,0)
-
-    const end = new Date(today)
-    end.setHours(23,59,59,999)
-
+  async function fetchAll() {
     const { data } = await supabase
       .from('appointments')
       .select(`
@@ -25,14 +18,25 @@ export default function Dashboard() {
         clients (nome),
         appointment_services (services (prezzo))
       `)
-      .gte('data', start.toISOString())
-      .lte('data', end.toISOString())
 
     setAppointments(data || [])
   }
 
+  function isToday(date) {
+    const today = new Date()
+    const d = new Date(date)
+
+    return (
+      d.getDate() === today.getDate() &&
+      d.getMonth() === today.getMonth() &&
+      d.getFullYear() === today.getFullYear()
+    )
+  }
+
+  const todayAppointments = appointments.filter(a => isToday(a.data))
+
   function getTotal() {
-    return appointments.reduce((tot, app) => {
+    return todayAppointments.reduce((tot, app) => {
       return tot + (app.appointment_services || []).reduce(
         (acc, s) => acc + Number(s.services?.prezzo || 0),
         0
@@ -53,7 +57,7 @@ export default function Dashboard() {
         <div className="bg-pink-100 p-4 rounded-xl">
           <div className="text-sm">Appuntamenti oggi</div>
           <div className="text-xl font-bold">
-            {appointments.length}
+            {todayAppointments.length}
           </div>
         </div>
 
@@ -72,13 +76,13 @@ export default function Dashboard() {
           📅 Oggi
         </div>
 
-        {appointments.length === 0 && (
+        {todayAppointments.length === 0 && (
           <div className="text-gray-500 text-sm">
             Nessun appuntamento oggi
           </div>
         )}
 
-        {appointments.map((app, i) => (
+        {todayAppointments.map((app, i) => (
           <div key={i} className="flex justify-between border-b py-1 text-sm">
             <span>{app.clients?.nome}</span>
             <span>
