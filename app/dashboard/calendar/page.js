@@ -188,63 +188,37 @@ export default function CalendarPage() {
     fetchAll()
   }
 
-function sendWhatsAppReminder(app, type = 'reminder') {
-  let phone = app.clients?.telefono
-  const nome = app.clients?.nome
+  // ✅ WHATSAPP FIX
+  function sendWhatsAppReminder(app) {
+    let phone = app.clients?.telefono
+    const nome = app.clients?.nome
 
-  if (!phone) {
-    alert('Numero cliente mancante')
-    return
-  }
+    if (!phone) {
+      alert('Numero cliente mancante')
+      return
+    }
 
-  // 🔥 pulizia numero
-  phone = phone.replace(/\D/g, '')
+    phone = phone.replace(/\D/g, '')
 
-  // 🔥 aggiunge prefisso Italia se manca
-  if (!phone.startsWith('39')) {
-    phone = '39' + phone
-  }
+    if (!phone.startsWith('39')) {
+      phone = '39' + phone
+    }
 
-  const date = new Date(app.data).toLocaleDateString('it-IT')
-  const time = new Date(app.data).toLocaleTimeString([], {
-    hour: '2-digit',
-    minute: '2-digit'
-  })
+    const date = new Date(app.data).toLocaleDateString('it-IT')
+    const time = new Date(app.data).toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit'
+    })
 
-  // 💬 MESSAGGI PRO
-  let text = ''
-
-  if (type === 'reminder') {
-    text = `Ciao ${nome} 💅
+    const text = `Ciao ${nome} 💅
 Ti ricordiamo il tuo appuntamento:
 
 📅 ${date}
 ⏰ ${time}
 
 Ti aspettiamo!`
-  }
 
-  if (type === 'confirm') {
-    text = `Ciao ${nome} 💅
-Confermiamo il tuo appuntamento:
-
-📅 ${date}
-⏰ ${time}
-
-A presto!`
-  }
-
-  if (type === 'promo') {
-    text = `Ciao ${nome} 💅
-Abbiamo nuove promozioni disponibili!
-
-Scrivici per prenotare 💖`
-  }
-
-  const url = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`
-
-  window.open(url, '_blank')
-}
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`)
   }
 
   const filteredClients = clients.filter(c =>
@@ -254,12 +228,14 @@ Scrivici per prenotare 💖`
   return (
     <div className="p-4 space-y-4">
 
+      {/* HEADER */}
       <div className="flex justify-between items-center">
         <button onClick={() => changeWeek(-1)}>←</button>
         <h1 className="text-xl font-bold text-pink-700">Calendario</h1>
         <button onClick={() => changeWeek(1)}>→</button>
       </div>
 
+      {/* CALENDARIO */}
       <div className="grid grid-cols-7 gap-2">
         {getWeekDays().map((day, i) => {
           const dayApps = getAppointmentsForDay(day)
@@ -310,118 +286,79 @@ Scrivici per prenotare 💖`
         })}
       </div>
 
-      {/* MODAL PRO */}
+      {/* MODAL */}
       {open && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white w-full max-w-lg max-h-[90vh] rounded-2xl shadow-xl flex flex-col">
 
-          <div className="bg-white w-full max-w-lg max-h-[90vh] rounded-2xl shadow-xl flex flex-col border border-pink-100">
-
-            {/* HEADER */}
-            <div className="p-4 border-b flex justify-between items-center">
-              <h2 className="font-bold text-lg text-pink-700">
-                {editMode ? 'Modifica appuntamento' : 'Nuovo appuntamento'}
-              </h2>
+            <div className="p-4 border-b flex justify-between">
+              <h2>{editMode ? 'Modifica' : 'Nuovo'} appuntamento</h2>
               <button onClick={() => setOpen(false)}>✖</button>
             </div>
 
-            {/* CONTENUTO */}
             <div className="p-4 space-y-4 overflow-y-auto">
 
-              {/* CLIENTE */}
-              <div>
-                <div className="text-sm font-semibold text-pink-600 mb-1">
-                  Cliente
-                </div>
+              {/* CLIENTI */}
+              <input
+                placeholder="Cliente..."
+                value={clientSearch}
+                onChange={e => setClientSearch(e.target.value)}
+                className="border p-2 w-full"
+              />
 
-                <input
-                  placeholder="Scrivi cliente..."
-                  value={clientSearch}
-                  onChange={e => setClientSearch(e.target.value)}
-                  className="border p-2 w-full rounded-lg"
-                />
-
-                <div className="max-h-32 overflow-y-auto mt-2 border rounded-lg">
-                  {filteredClients.map(c => (
-                    <div
-                      key={c.id}
-                      onClick={() => {
-                        setClientId(c.id)
-                        setClientSearch(c.nome)
-                      }}
-                      className="p-2 hover:bg-pink-100 cursor-pointer"
-                    >
-                      {c.nome}
-                    </div>
-                  ))}
-                </div>
+              <div className="max-h-32 overflow-y-auto border">
+                {filteredClients.map(c => (
+                  <div key={c.id} onClick={() => {
+                    setClientId(c.id)
+                    setClientSearch(c.nome)
+                  }}>
+                    {c.nome}
+                  </div>
+                ))}
               </div>
 
               {/* ORARIO */}
               <input type="time" value={time} onChange={e => setTime(e.target.value)} />
 
               {/* SERVIZI */}
-              <div>
-                <div className="text-sm font-semibold text-pink-600 mb-2">
-                  Servizi
+              {Object.entries(
+                services.reduce((acc, s) => {
+                  const cat = s.categoria || 'Altro'
+                  if (!acc[cat]) acc[cat] = []
+                  acc[cat].push(s)
+                  return acc
+                }, {})
+              ).map(([cat, list]) => (
+                <div key={cat}>
+                  <div>{cat}</div>
+
+                  {list.map(s => {
+                    const selected = selectedServices.find(x => x.id === s.id)
+
+                    return (
+                      <div
+                        key={s.id}
+                        onClick={() => toggleService(s)}
+                        className={`p-2 rounded cursor-pointer ${
+                          selected ? 'bg-pink-500 text-white' : ''
+                        }`}
+                      >
+                        {s.nome} • €{s.prezzo} • {s.durata || 30}min
+                      </div>
+                    )
+                  })}
+
                 </div>
-
-                {Object.entries(
-                  services.reduce((acc, s) => {
-                    const cat = s.categoria || 'Altro'
-                    if (!acc[cat]) acc[cat] = []
-                    acc[cat].push(s)
-                    return acc
-                  }, {})
-                ).map(([cat, list]) => (
-                  <div key={cat} className="mb-4">
-
-                    <div className="text-xs font-bold text-gray-500 mb-1 uppercase">
-                      {cat}
-                    </div>
-
-                    {list.map(s => {
-                      const selected = selectedServices.find(x => x.id === s.id)
-
-                      return (
-                        <div
-                          key={s.id}
-                          onClick={() => toggleService(s)}
-                          className={`p-3 rounded-xl cursor-pointer border mb-1 ${
-                            selected
-                              ? 'bg-pink-500 text-white'
-                              : 'bg-white hover:bg-pink-50'
-                          }`}
-                        >
-                          {s.nome} - €{s.prezzo}
-                        </div>
-                      )
-                    })}
-
-                  </div>
-                ))}
-              </div>
+              ))}
 
             </div>
 
-            {/* FOOTER */}
             <div className="p-4 border-t flex gap-2">
-              <button
-                onClick={saveAppointment}
-                className="bg-pink-600 text-white w-full py-2 rounded-xl"
-              >
-                Salva
-              </button>
-
-              <button
-                onClick={() => setOpen(false)}
-                className="bg-gray-300 w-full py-2 rounded-xl"
-              >
-                Annulla
-              </button>
+              <button onClick={saveAppointment}>Salva</button>
+              <button onClick={() => setOpen(false)}>Chiudi</button>
             </div>
 
           </div>
-
         </div>
       )}
 
