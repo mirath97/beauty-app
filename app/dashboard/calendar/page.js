@@ -90,7 +90,6 @@ export default function CalendarPage() {
     )
   }
 
-  // 🔥 CONTROLLO CONFLITTI
   function hasConflict(newDate) {
     return appointments.some(app => {
       const existing = new Date(app.data)
@@ -136,8 +135,12 @@ export default function CalendarPage() {
 
     setSelectedServices(updated)
 
-    // 🔥 DURATA AUTOMATICA (30 min per servizio)
-    setDuration(updated.length * 30 || 30)
+    const totalDuration = updated.reduce(
+      (acc, s) => acc + Number(s.durata || 30),
+      0
+    )
+
+    setDuration(totalDuration || 30)
   }
 
   async function saveAppointment() {
@@ -188,11 +191,9 @@ export default function CalendarPage() {
   function sendWhatsAppReminder(app) {
     const phone = app.clients?.telefono
     const nome = app.clients?.nome
-
     if (!phone) return
 
     const text = `Ciao ${nome} 💅 ti aspettiamo per il tuo appuntamento!`
-
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`)
   }
 
@@ -203,35 +204,27 @@ export default function CalendarPage() {
   return (
     <div className="p-4 space-y-4">
 
-      {/* HEADER */}
       <div className="flex justify-between items-center">
         <button onClick={() => changeWeek(-1)}>←</button>
         <h1 className="text-xl font-bold text-pink-700">Calendario</h1>
         <button onClick={() => changeWeek(1)}>→</button>
       </div>
 
-      {/* CALENDARIO */}
       <div className="grid grid-cols-7 gap-2">
         {getWeekDays().map((day, i) => {
           const dayApps = getAppointmentsForDay(day)
 
           return (
-            <div
-              key={i}
-              onDoubleClick={() => openNew(day)}
-              className="bg-gray-100 p-2 rounded flex flex-col min-h-[260px]"
-            >
+            <div key={i} className="bg-gray-100 p-2 rounded min-h-[260px]">
 
               <div className="flex justify-between">
                 <div className="text-sm font-bold">
                   {day.toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric' })}
                 </div>
-
                 <button onClick={() => openNew(day)}>➕</button>
               </div>
 
-              <div className="flex-1 space-y-2 mt-2">
-
+              <div className="space-y-2 mt-2">
                 {dayApps.map(app => {
                   const start = new Date(app.data)
 
@@ -246,7 +239,6 @@ export default function CalendarPage() {
                       </div>
 
                       <div>{app.clients?.nome}</div>
-
                       <div>€ {getTotal(app)}</div>
 
                       <button
@@ -261,7 +253,6 @@ export default function CalendarPage() {
                     </div>
                   )
                 })}
-
               </div>
 
             </div>
@@ -269,139 +260,69 @@ export default function CalendarPage() {
         })}
       </div>
 
-      {/* 🔥 MODAL */}
- {open && (
-  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      {/* MODAL */}
+      {open && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white w-full max-w-lg max-h-[90vh] rounded-2xl shadow-xl flex flex-col">
 
-    <div className="bg-white w-full max-w-lg max-h-[90vh] rounded-2xl shadow-xl flex flex-col">
+            <div className="p-4 border-b flex justify-between">
+              <h2>{editMode ? 'Modifica' : 'Nuovo'} appuntamento</h2>
+              <button onClick={() => setOpen(false)}>✖</button>
+            </div>
 
-      {/* HEADER */}
-      <div className="p-4 border-b flex justify-between items-center">
-        <h2 className="font-bold text-lg text-pink-700">
-          {editMode ? 'Modifica appuntamento' : 'Nuovo appuntamento'}
-        </h2>
+            <div className="p-4 space-y-4 overflow-y-auto">
 
-        <button onClick={() => setOpen(false)}>✖</button>
-      </div>
+              <input
+                placeholder="Cliente..."
+                value={clientSearch}
+                onChange={e => setClientSearch(e.target.value)}
+                className="border p-2 w-full"
+              />
 
-      {/* CONTENUTO SCROLL */}
-      <div className="p-4 space-y-4 overflow-y-auto">
-
-        {/* CLIENTE */}
-        <div>
-          <div className="text-sm font-semibold mb-1">Cliente</div>
-
-          <input
-            placeholder="Scrivi nome cliente..."
-            value={clientSearch}
-            onChange={e => setClientSearch(e.target.value)}
-            className="border p-2 w-full rounded-lg"
-          />
-
-          <div className="max-h-32 overflow-y-auto mt-2 border rounded-lg">
-            {filteredClients.map(c => (
-              <div
-                key={c.id}
-                onClick={() => {
-                  setClientId(c.id)
-                  setClientSearch(c.nome)
-                }}
-                className="p-2 hover:bg-pink-100 cursor-pointer text-sm"
-              >
-                {c.nome}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* ORARIO */}
-        <div>
-          <div className="text-sm font-semibold mb-1">Orario</div>
-          <input
-            type="time"
-            value={time}
-            onChange={e => setTime(e.target.value)}
-            className="border p-2 w-full rounded-lg"
-          />
-        </div>
-
-        {/* DURATA */}
-        <div>
-          <div className="text-sm font-semibold mb-1">Durata (min)</div>
-          <input
-            type="number"
-            value={duration}
-            onChange={e => setDuration(e.target.value)}
-            className="border p-2 w-full rounded-lg"
-          />
-        </div>
-
-        {/* SERVIZI PER CATEGORIA */}
-        <div>
-          <div className="text-sm font-semibold mb-2">Servizi</div>
-
-          {Object.entries(
-            services.reduce((acc, s) => {
-              const cat = s.categoria || 'Altro'
-              if (!acc[cat]) acc[cat] = []
-              acc[cat].push(s)
-              return acc
-            }, {})
-          ).map(([cat, list]) => (
-            <div key={cat} className="mb-3">
-
-              <div className="font-bold text-xs text-gray-500 mb-1">
-                {cat}
+              <div className="max-h-32 overflow-y-auto border">
+                {filteredClients.map(c => (
+                  <div key={c.id} onClick={() => {
+                    setClientId(c.id)
+                    setClientSearch(c.nome)
+                  }}>
+                    {c.nome}
+                  </div>
+                ))}
               </div>
 
-              <div className="space-y-1">
-                {list.map(s => {
-                  const selected = selectedServices.find(x => x.id === s.id)
+              <input type="time" value={time} onChange={e => setTime(e.target.value)} />
 
-                  return (
-                    <div
-                      key={s.id}
-                      onClick={() => toggleService(s)}
-                      className={`p-2 rounded-lg cursor-pointer text-sm flex justify-between ${
-                        selected ? 'bg-pink-200' : 'bg-gray-100'
-                      }`}
-                    >
-                      <span>{s.nome}</span>
+              <input type="number" value={duration} onChange={e => setDuration(e.target.value)} />
 
-                      <span className="text-xs text-gray-600">
-                        €{s.prezzo} • {s.durata || 30}m
-                      </span>
+              {Object.entries(
+                services.reduce((acc, s) => {
+                  const cat = s.categoria || 'Altro'
+                  if (!acc[cat]) acc[cat] = []
+                  acc[cat].push(s)
+                  return acc
+                }, {})
+              ).map(([cat, list]) => (
+                <div key={cat}>
+                  <div>{cat}</div>
+                  {list.map(s => (
+                    <div key={s.id} onClick={() => toggleService(s)}>
+                      {s.nome} €{s.prezzo}
                     </div>
-                  )
-                })}
-              </div>
+                  ))}
+                </div>
+              ))}
 
             </div>
-          ))}
+
+            <div className="p-4 border-t flex gap-2">
+              <button onClick={saveAppointment}>Salva</button>
+              <button onClick={() => setOpen(false)}>Chiudi</button>
+            </div>
+
+          </div>
         </div>
-
-      </div>
-
-      {/* FOOTER */}
-      <div className="p-4 border-t flex gap-2">
-
-        <button
-          onClick={saveAppointment}
-          className="bg-pink-600 text-white w-full py-2 rounded-xl"
-        >
-          Salva
-        </button>
-
-        <button
-          onClick={() => setOpen(false)}
-          className="bg-gray-300 w-full py-2 rounded-xl"
-        >
-          Annulla
-        </button>
-
-      </div>
+      )}
 
     </div>
-
-  </div>
-)}
+  )
+}
