@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server'
 
 export function middleware(req) {
-  const isLogged = req.cookies.get('sb-access-token')
+  const url = req.nextUrl
 
-  if (!isLogged && req.nextUrl.pathname.startsWith('/dashboard')) {
-    return NextResponse.redirect(new URL('/login', req.url))
+  // lascia sempre accesso a login
+  if (url.pathname.startsWith('/login')) {
+    return NextResponse.next()
   }
 
+  // 🔥 TEMP: non bloccare dashboard
   return NextResponse.next()
 }
