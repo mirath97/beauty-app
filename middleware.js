@@ -1,13 +1,34 @@
 import { NextResponse } from 'next/server'
+import { createServerClient } from '@supabase/ssr'
 
-export function middleware(req) {
-  const url = req.nextUrl
+export async function middleware(req) {
+  const res = NextResponse.next()
 
-  // lascia sempre accesso a login
-  if (url.pathname.startsWith('/login')) {
-    return NextResponse.next()
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    {
+      cookies: {
+        get: (key) => req.cookies.get(key)?.value,
+        set: (key, value) => res.cookies.set(key, value),
+        remove: (key) => res.cookies.set(key, '', { maxAge: 0 }),
+      },
+    }
+  )
+
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+
+  // 🔒 proteggi dashboard
+  if (!session && req.nextUrl.pathname.startsWith('/dashboard')) {
+    return NextResponse.redirect(new URL('/login', req.url))
   }
 
-  // 🔥 TEMP: non bloccare dashboard
-  return NextResponse.next()
+  // 🔁 evita login se già loggato
+  if (session && req.nextUrl.pathname === '/login') {
+    return NextResponse.redirect(new URL('/dashboard', req.url))
+  }
+
+  return res
 }
