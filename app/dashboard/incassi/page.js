@@ -129,7 +129,7 @@ export default function IncassiPage() {
       {/* HEADER */}
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-pink-700">
-          Incassi PRO
+         INCASSI NUOVO
         </h1>
 
         <div className="flex gap-2">
