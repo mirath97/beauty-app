@@ -270,55 +270,138 @@ export default function CalendarPage() {
       </div>
 
       {/* 🔥 MODAL */}
-      {open && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white p-4 rounded-xl w-[90%] max-w-md space-y-3">
+ {open && (
+  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
 
-            <h2 className="font-bold">
-              {editMode ? 'Modifica' : 'Nuovo'} appuntamento
-            </h2>
+    <div className="bg-white w-full max-w-lg max-h-[90vh] rounded-2xl shadow-xl flex flex-col">
 
-            <input
-              placeholder="Cerca cliente"
-              value={clientSearch}
-              onChange={e => setClientSearch(e.target.value)}
-              className="border p-2 w-full"
-            />
+      {/* HEADER */}
+      <div className="p-4 border-b flex justify-between items-center">
+        <h2 className="font-bold text-lg text-pink-700">
+          {editMode ? 'Modifica appuntamento' : 'Nuovo appuntamento'}
+        </h2>
 
-            <div className="max-h-24 overflow-y-auto">
-              {filteredClients.map(c => (
-                <div key={c.id} onClick={() => {
+        <button onClick={() => setOpen(false)}>✖</button>
+      </div>
+
+      {/* CONTENUTO SCROLL */}
+      <div className="p-4 space-y-4 overflow-y-auto">
+
+        {/* CLIENTE */}
+        <div>
+          <div className="text-sm font-semibold mb-1">Cliente</div>
+
+          <input
+            placeholder="Scrivi nome cliente..."
+            value={clientSearch}
+            onChange={e => setClientSearch(e.target.value)}
+            className="border p-2 w-full rounded-lg"
+          />
+
+          <div className="max-h-32 overflow-y-auto mt-2 border rounded-lg">
+            {filteredClients.map(c => (
+              <div
+                key={c.id}
+                onClick={() => {
                   setClientId(c.id)
                   setClientSearch(c.nome)
-                }}>
-                  {c.nome}
-                </div>
-              ))}
-            </div>
-
-            <input type="time" value={time} onChange={e => setTime(e.target.value)} />
-
-            <input
-              type="number"
-              value={duration}
-              onChange={e => setDuration(e.target.value)}
-            />
-
-            <div>
-              {services.map(s => (
-                <div key={s.id} onClick={() => toggleService(s)}>
-                  {s.nome} €{s.prezzo}
-                </div>
-              ))}
-            </div>
-
-            <button onClick={saveAppointment}>Salva</button>
-            <button onClick={() => setOpen(false)}>Chiudi</button>
-
+                }}
+                className="p-2 hover:bg-pink-100 cursor-pointer text-sm"
+              >
+                {c.nome}
+              </div>
+            ))}
           </div>
         </div>
-      )}
+
+        {/* ORARIO */}
+        <div>
+          <div className="text-sm font-semibold mb-1">Orario</div>
+          <input
+            type="time"
+            value={time}
+            onChange={e => setTime(e.target.value)}
+            className="border p-2 w-full rounded-lg"
+          />
+        </div>
+
+        {/* DURATA */}
+        <div>
+          <div className="text-sm font-semibold mb-1">Durata (min)</div>
+          <input
+            type="number"
+            value={duration}
+            onChange={e => setDuration(e.target.value)}
+            className="border p-2 w-full rounded-lg"
+          />
+        </div>
+
+        {/* SERVIZI PER CATEGORIA */}
+        <div>
+          <div className="text-sm font-semibold mb-2">Servizi</div>
+
+          {Object.entries(
+            services.reduce((acc, s) => {
+              const cat = s.categoria || 'Altro'
+              if (!acc[cat]) acc[cat] = []
+              acc[cat].push(s)
+              return acc
+            }, {})
+          ).map(([cat, list]) => (
+            <div key={cat} className="mb-3">
+
+              <div className="font-bold text-xs text-gray-500 mb-1">
+                {cat}
+              </div>
+
+              <div className="space-y-1">
+                {list.map(s => {
+                  const selected = selectedServices.find(x => x.id === s.id)
+
+                  return (
+                    <div
+                      key={s.id}
+                      onClick={() => toggleService(s)}
+                      className={`p-2 rounded-lg cursor-pointer text-sm flex justify-between ${
+                        selected ? 'bg-pink-200' : 'bg-gray-100'
+                      }`}
+                    >
+                      <span>{s.nome}</span>
+
+                      <span className="text-xs text-gray-600">
+                        €{s.prezzo} • {s.durata || 30}m
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+
+            </div>
+          ))}
+        </div>
+
+      </div>
+
+      {/* FOOTER */}
+      <div className="p-4 border-t flex gap-2">
+
+        <button
+          onClick={saveAppointment}
+          className="bg-pink-600 text-white w-full py-2 rounded-xl"
+        >
+          Salva
+        </button>
+
+        <button
+          onClick={() => setOpen(false)}
+          className="bg-gray-300 w-full py-2 rounded-xl"
+        >
+          Annulla
+        </button>
+
+      </div>
 
     </div>
-  )
-}
+
+  </div>
+)}
