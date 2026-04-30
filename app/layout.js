@@ -12,6 +12,7 @@ export default function RootLayout({ children }) {
     { name: '💅 Servizi', href: '/dashboard/services' },
     { name: '💰 Incassi', href: '/dashboard/incassi' },
     { name: '🤖 AI', href: '/dashboard/ai' },
+	{ name: '👤 Clienti', href: '/dashboard/clients' }
   ]
 
   return (
