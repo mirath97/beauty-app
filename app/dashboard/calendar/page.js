@@ -188,13 +188,63 @@ export default function CalendarPage() {
     fetchAll()
   }
 
-  function sendWhatsAppReminder(app) {
-    const phone = app.clients?.telefono
-    const nome = app.clients?.nome
-    if (!phone) return
+function sendWhatsAppReminder(app, type = 'reminder') {
+  let phone = app.clients?.telefono
+  const nome = app.clients?.nome
 
-    const text = `Ciao ${nome} 💅 ti aspettiamo per il tuo appuntamento!`
-    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`)
+  if (!phone) {
+    alert('Numero cliente mancante')
+    return
+  }
+
+  // 🔥 pulizia numero
+  phone = phone.replace(/\D/g, '')
+
+  // 🔥 aggiunge prefisso Italia se manca
+  if (!phone.startsWith('39')) {
+    phone = '39' + phone
+  }
+
+  const date = new Date(app.data).toLocaleDateString('it-IT')
+  const time = new Date(app.data).toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+
+  // 💬 MESSAGGI PRO
+  let text = ''
+
+  if (type === 'reminder') {
+    text = `Ciao ${nome} 💅
+Ti ricordiamo il tuo appuntamento:
+
+📅 ${date}
+⏰ ${time}
+
+Ti aspettiamo!`
+  }
+
+  if (type === 'confirm') {
+    text = `Ciao ${nome} 💅
+Confermiamo il tuo appuntamento:
+
+📅 ${date}
+⏰ ${time}
+
+A presto!`
+  }
+
+  if (type === 'promo') {
+    text = `Ciao ${nome} 💅
+Abbiamo nuove promozioni disponibili!
+
+Scrivici per prenotare 💖`
+  }
+
+  const url = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`
+
+  window.open(url, '_blank')
+}
   }
 
   const filteredClients = clients.filter(c =>
