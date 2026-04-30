@@ -46,7 +46,7 @@ export default function IncassiPage() {
     setPrevAppointments(prev)
   }
 
-  // 🔥 FIX INCASSI (IDENTICO AL CALENDARIO)
+  // 💰 totale appuntamento
   function getAppTotal(app) {
     return (app.appointment_services || []).reduce((acc, s) => {
       return acc + Number(s.services?.prezzo || 0)
@@ -65,26 +65,57 @@ export default function IncassiPage() {
     ? ((diff / prevTotal) * 100).toFixed(0)
     : 0
 
-  // 📅 TOTALE PER GIORNO
-  function getDailyTotals() {
+  // 📅 GENERA TUTTI I GIORNI DEL MESE
+  function getFullMonthDays() {
+    const year = month.getFullYear()
+    const m = month.getMonth()
+
+    const daysInMonth = new Date(year, m + 1, 0).getDate()
+
     const map = {}
 
     appointments.forEach(app => {
-      const date = new Date(app.data).toDateString()
-
-      if (!map[date]) map[date] = 0
-      map[date] += getAppTotal(app)
+      const key = new Date(app.data).toDateString()
+      if (!map[key]) map[key] = 0
+      map[key] += getAppTotal(app)
     })
 
-    return Object.entries(map)
-      .map(([date, total]) => ({
-        date: new Date(date),
-        total
-      }))
-      .sort((a, b) => a.date - b.date)
+    return Array.from({ length: daysInMonth }).map((_, i) => {
+      const date = new Date(year, m, i + 1)
+      const key = date.toDateString()
+
+      return {
+        date,
+        total: map[key] || 0
+      }
+    })
   }
 
-  const dailyTotals = getDailyTotals()
+  const dailyTotals = getFullMonthDays()
+
+  // 🔥 OGGI
+  const todayTotal = dailyTotals.find(d =>
+    d.date.toDateString() === new Date().toDateString()
+  )?.total || 0
+
+  // 🔥 SETTIMANA
+  function getWeekTotal() {
+    const now = new Date()
+    const start = new Date(now)
+    start.setDate(now.getDate() - 7)
+
+    return appointments
+      .filter(a => new Date(a.data) >= start)
+      .reduce((tot, app) => tot + getAppTotal(app), 0)
+  }
+
+  const weekTotal = getWeekTotal()
+
+  // 🔥 MIGLIOR GIORNO
+  const bestDay = [...dailyTotals].sort((a, b) => b.total - a.total)[0]
+
+  // 🔥 PEGGIOR GIORNO
+  const worstDay = [...dailyTotals].sort((a, b) => a.total - b.total)[0]
 
   function changeMonth(offset) {
     const d = new Date(month)
@@ -110,6 +141,24 @@ export default function IncassiPage() {
             })}
           </div>
           <button onClick={() => changeMonth(1)}>→</button>
+        </div>
+      </div>
+
+      {/* 💰 KPI VELOCI */}
+      <div className="grid grid-cols-3 gap-3">
+        <div className="bg-green-100 p-3 rounded-xl text-center">
+          <div className="text-xs">Oggi</div>
+          <div className="font-bold">€ {todayTotal}</div>
+        </div>
+
+        <div className="bg-blue-100 p-3 rounded-xl text-center">
+          <div className="text-xs">Settimana</div>
+          <div className="font-bold">€ {weekTotal}</div>
+        </div>
+
+        <div className="bg-purple-100 p-3 rounded-xl text-center">
+          <div className="text-xs">Mese</div>
+          <div className="font-bold">€ {currentTotal}</div>
         </div>
       </div>
 
@@ -148,6 +197,25 @@ export default function IncassiPage() {
             </div>
           ))}
         </div>
+      </div>
+
+      {/* 🏆 INSIGHT */}
+      <div className="bg-white p-6 rounded-2xl shadow">
+        <h2 className="text-pink-700 font-semibold mb-2">
+          🧠 Insight
+        </h2>
+
+        {bestDay && (
+          <div className="text-green-600">
+            🔥 Giorno migliore: € {bestDay.total}
+          </div>
+        )}
+
+        {worstDay && (
+          <div className="text-red-500">
+            ⚠️ Giorno peggiore: € {worstDay.total}
+          </div>
+        )}
       </div>
 
       {/* 📈 CONFRONTO */}
