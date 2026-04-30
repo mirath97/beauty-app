@@ -1,42 +1,50 @@
+'use client'
+
 import './globals.css'
 import Link from 'next/link'
-
-export const metadata = {
-  title: 'Beauty Lab Antonella',
-}
+import { usePathname } from 'next/navigation'
 
 export default function RootLayout({ children }) {
+  const pathname = usePathname()
+
+  const links = [
+    { name: '📅 Calendario', href: '/dashboard/calendar' },
+    { name: '💅 Servizi', href: '/dashboard/services' },
+    { name: '💰 Incassi', href: '/dashboard/incassi' },
+    { name: '🤖 AI', href: '/dashboard/ai' },
+  ]
+
   return (
     <html lang="it">
-      <body className="bg-pink-50">
+      <body className="bg-gray-50">
 
-        <div className="min-h-screen flex flex-col">
+        {/* 🔝 MENU */}
+        <nav className="flex gap-3 p-4 bg-white shadow sticky top-0 z-50">
 
-          {/* HEADER */}
-          <div className="text-center py-4">
-            <h1 className="text-3xl font-bold text-pink-700">
-              Beauty Lab Antonella
-            </h1>
-          </div>
+          {links.map(link => {
+            const active = pathname === link.href
 
-          {/* NAV COMPLETA */}
-          <nav className="flex flex-wrap justify-around bg-white p-3 shadow text-xl gap-2">
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`px-4 py-2 rounded-xl text-sm font-medium transition ${
+                  active
+                    ? 'bg-pink-600 text-white'
+                    : 'bg-gray-100 hover:bg-gray-200'
+                }`}
+              >
+                {link.name}
+              </Link>
+            )
+          })}
 
-            <Link href="/calendar">📅</Link>
-            <Link href="/clients">👤</Link>
-            <Link href="/services">💅</Link>
-            <Link href="/dashboard/incassi">Incassi</Link>
-            <Link href="/dashboard/ai">🧠</Link>
-            <Link href="/reminders">📲</Link>
+        </nav>
 
-          </nav>
-
-          {/* CONTENUTO */}
-          <main className="flex-1 p-4">
-            {children}
-          </main>
-
-        </div>
+        {/* 📦 CONTENUTO */}
+        <main className="p-4">
+          {children}
+        </main>
 
       </body>
     </html>
