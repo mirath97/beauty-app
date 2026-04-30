@@ -62,9 +62,7 @@ export default function CalendarPage() {
         durata,
         client_id,
         clients (nome, telefono),
-        appointment_services (
-          services (*)
-        )
+        appointment_services (services (*))
       `)
       .gte('data', start.toISOString())
       .lte('data', end.toISOString())
@@ -85,7 +83,6 @@ export default function CalendarPage() {
     })
   }
 
-  // 🔥 FIX INCASSI
   function getTotal(app) {
     return (app.appointment_services || []).reduce(
       (acc, s) => acc + Number(s.services?.prezzo || 0),
@@ -93,72 +90,12 @@ export default function CalendarPage() {
     )
   }
 
-  function getDailyTotal(dayApps) {
-    return dayApps.reduce((tot, app) => tot + getTotal(app), 0)
-  }
-
-  // 🤖 AI
-  function analyzeWeek() {
-    return getWeekDays().map(day => {
-      const apps = getAppointmentsForDay(day)
-      const total = getDailyTotal(apps)
-
-      let color = 'bg-gray-100'
-      let icon = '⚪'
-      let suggestion = 'Inserisci promozioni'
-
-      if (total > 0 && total < 80) {
-        color = 'bg-red-100'
-        icon = '🔴'
-        suggestion = 'Manda reminder clienti'
-      }
-
-      if (total >= 80 && total < 150) {
-        color = 'bg-yellow-100'
-        icon = '🟡'
-        suggestion = 'Fai upsell'
-      }
-
-      if (total >= 150) {
-        color = 'bg-green-100'
-        icon = '🟢'
-        suggestion = 'Aumenta prezzi'
-      }
-
-      return {
-        day: day.toLocaleDateString('it-IT', { weekday: 'short' }),
-        total,
-        suggestion,
-        color,
-        icon
-      }
+  // 🔥 CONTROLLO CONFLITTI
+  function hasConflict(newDate) {
+    return appointments.some(app => {
+      const existing = new Date(app.data)
+      return existing.getTime() === newDate.getTime() && app.id !== currentId
     })
-  }
-
-  // 🔔 CLIENTI INATTIVI
-  function getInactiveClients() {
-    const map = {}
-
-    appointments.forEach(app => {
-      const id = app.client_id
-      const date = new Date(app.data)
-
-      if (!map[id] || new Date(map[id].data) < date) {
-        map[id] = app
-      }
-    })
-
-    const now = new Date()
-
-    return Object.values(map)
-      .map(app => {
-        const diff = Math.floor(
-          (now - new Date(app.data)) / (1000 * 60 * 60 * 24)
-        )
-        return { ...app, diff }
-      })
-      .filter(c => c.diff >= 30)
-      .sort((a, b) => b.diff - a.diff)
   }
 
   function openNew(day) {
@@ -189,11 +126,18 @@ export default function CalendarPage() {
   }
 
   function toggleService(s) {
+    let updated
+
     if (selectedServices.find(x => x.id === s.id)) {
-      setSelectedServices(selectedServices.filter(x => x.id !== s.id))
+      updated = selectedServices.filter(x => x.id !== s.id)
     } else {
-      setSelectedServices([...selectedServices, s])
+      updated = [...selectedServices, s]
     }
+
+    setSelectedServices(updated)
+
+    // 🔥 DURATA AUTOMATICA (30 min per servizio)
+    setDuration(updated.length * 30 || 30)
   }
 
   async function saveAppointment() {
@@ -203,6 +147,10 @@ export default function CalendarPage() {
     const [h, m] = time.split(':').map(Number)
     d.setHours(h)
     d.setMinutes(m)
+
+    if (hasConflict(d)) {
+      return alert('⚠️ Orario già occupato')
+    }
 
     let appId = currentId
 
@@ -237,26 +185,13 @@ export default function CalendarPage() {
     fetchAll()
   }
 
-  // 📲 WHATSAPP MIGLIORATO
   function sendWhatsAppReminder(app) {
     const phone = app.clients?.telefono
     const nome = app.clients?.nome
 
     if (!phone) return
 
-    const date = new Date(app.data).toLocaleDateString('it-IT')
-    const time = new Date(app.data).toLocaleTimeString([], {
-      hour: '2-digit',
-      minute: '2-digit'
-    })
-
-    const text = `Ciao ${nome} 💅
-Ti ricordiamo il tuo appuntamento:
-
-📅 ${date}
-⏰ ${time}
-
-Ti aspettiamo!`
+    const text = `Ciao ${nome} 💅 ti aspettiamo per il tuo appuntamento!`
 
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`)
   }
@@ -275,53 +210,17 @@ Ti aspettiamo!`
         <button onClick={() => changeWeek(1)}>→</button>
       </div>
 
-      {/* 🔔 CLIENTI DA RICHIAMARE */}
-      <div className="bg-yellow-100 p-3 rounded-xl">
-        <div className="font-bold mb-2">🔔 Clienti da ricontattare</div>
-
-        {getInactiveClients().slice(0, 3).map((c, i) => (
-          <div key={i} className="flex justify-between bg-white p-2 rounded mb-1 text-sm">
-            <div>
-              <div>{c.clients?.nome}</div>
-              <div className="text-xs text-gray-500">{c.diff} giorni</div>
-            </div>
-
-            <button
-              onClick={() => sendWhatsAppReminder(c)}
-              className="bg-green-500 text-white px-2 py-1 rounded text-xs"
-            >
-              📲 Scrivi
-            </button>
-          </div>
-        ))}
-      </div>
-
-      {/* 🤖 AI */}
-      <div className="bg-white p-4 rounded-xl shadow">
-        <div className="font-bold text-pink-700 mb-2">
-          🤖 Suggerimenti intelligenti
-        </div>
-
-        <div className="grid grid-cols-2 gap-2 text-xs">
-          {analyzeWeek().map((d, i) => (
-            <div key={i} className={`p-2 rounded ${d.color}`}>
-              <div className="flex justify-between">
-                <span>{d.icon} {d.day}</span>
-                <span>€ {d.total}</span>
-              </div>
-              <div>{d.suggestion}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-
       {/* CALENDARIO */}
       <div className="grid grid-cols-7 gap-2">
         {getWeekDays().map((day, i) => {
           const dayApps = getAppointmentsForDay(day)
 
           return (
-            <div key={i} className="bg-gray-100 p-2 rounded flex flex-col min-h-[260px]">
+            <div
+              key={i}
+              onDoubleClick={() => openNew(day)}
+              className="bg-gray-100 p-2 rounded flex flex-col min-h-[260px]"
+            >
 
               <div className="flex justify-between">
                 <div className="text-sm font-bold">
@@ -369,6 +268,56 @@ Ti aspettiamo!`
           )
         })}
       </div>
+
+      {/* 🔥 MODAL */}
+      {open && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white p-4 rounded-xl w-[90%] max-w-md space-y-3">
+
+            <h2 className="font-bold">
+              {editMode ? 'Modifica' : 'Nuovo'} appuntamento
+            </h2>
+
+            <input
+              placeholder="Cerca cliente"
+              value={clientSearch}
+              onChange={e => setClientSearch(e.target.value)}
+              className="border p-2 w-full"
+            />
+
+            <div className="max-h-24 overflow-y-auto">
+              {filteredClients.map(c => (
+                <div key={c.id} onClick={() => {
+                  setClientId(c.id)
+                  setClientSearch(c.nome)
+                }}>
+                  {c.nome}
+                </div>
+              ))}
+            </div>
+
+            <input type="time" value={time} onChange={e => setTime(e.target.value)} />
+
+            <input
+              type="number"
+              value={duration}
+              onChange={e => setDuration(e.target.value)}
+            />
+
+            <div>
+              {services.map(s => (
+                <div key={s.id} onClick={() => toggleService(s)}>
+                  {s.nome} €{s.prezzo}
+                </div>
+              ))}
+            </div>
+
+            <button onClick={saveAppointment}>Salva</button>
+            <button onClick={() => setOpen(false)}>Chiudi</button>
+
+          </div>
+        </div>
+      )}
 
     </div>
   )
