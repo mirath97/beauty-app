@@ -7,10 +7,17 @@ export default function Dashboard() {
   const [appointments, setAppointments] = useState([])
 
   useEffect(() => {
-    fetchData()
+    fetchToday()
   }, [])
 
-  async function fetchData() {
+  async function fetchToday() {
+    const today = new Date()
+    const start = new Date(today)
+    start.setHours(0,0,0,0)
+
+    const end = new Date(today)
+    end.setHours(23,59,59,999)
+
     const { data } = await supabase
       .from('appointments')
       .select(`
@@ -18,28 +25,20 @@ export default function Dashboard() {
         clients (nome),
         appointment_services (services (prezzo))
       `)
+      .gte('data', start.toISOString())
+      .lte('data', end.toISOString())
 
     setAppointments(data || [])
   }
 
-  function getToday() {
-    const today = new Date().toDateString()
-
-    return appointments.filter(a =>
-      new Date(a.data).toDateString() === today
-    )
-  }
-
-  function getTodayTotal() {
-    return getToday().reduce((tot, app) => {
-      return tot + app.appointment_services.reduce(
+  function getTotal() {
+    return appointments.reduce((tot, app) => {
+      return tot + (app.appointment_services || []).reduce(
         (acc, s) => acc + Number(s.services?.prezzo || 0),
         0
       )
     }, 0)
   }
-
-  const todayApps = getToday()
 
   return (
     <div className="p-4 space-y-4">
@@ -54,26 +53,32 @@ export default function Dashboard() {
         <div className="bg-pink-100 p-4 rounded-xl">
           <div className="text-sm">Appuntamenti oggi</div>
           <div className="text-xl font-bold">
-            {todayApps.length}
+            {appointments.length}
           </div>
         </div>
 
         <div className="bg-green-100 p-4 rounded-xl">
           <div className="text-sm">Incasso oggi</div>
           <div className="text-xl font-bold">
-            € {getTodayTotal()}
+            € {getTotal()}
           </div>
         </div>
 
       </div>
 
-      {/* LISTA OGGI */}
+      {/* LISTA */}
       <div className="bg-white p-4 rounded-xl shadow">
         <div className="font-bold mb-2">
           📅 Oggi
         </div>
 
-        {todayApps.map((app, i) => (
+        {appointments.length === 0 && (
+          <div className="text-gray-500 text-sm">
+            Nessun appuntamento oggi
+          </div>
+        )}
+
+        {appointments.map((app, i) => (
           <div key={i} className="flex justify-between border-b py-1 text-sm">
             <span>{app.clients?.nome}</span>
             <span>
