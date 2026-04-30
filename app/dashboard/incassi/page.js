@@ -46,14 +46,15 @@ export default function IncassiPage() {
     setPrevAppointments(prev)
   }
 
-  function getTotal(apps) {
-    return apps.reduce((tot, app) => {
-      const sum = app.appointment_services.reduce(
-        (acc, s) => acc + (s.services.prezzo || 0),
-        0
-      )
-      return tot + sum
+  // 🔥 FIX INCASSI (IDENTICO AL CALENDARIO)
+  function getAppTotal(app) {
+    return (app.appointment_services || []).reduce((acc, s) => {
+      return acc + Number(s.services?.prezzo || 0)
     }, 0)
+  }
+
+  function getTotal(apps) {
+    return apps.reduce((tot, app) => tot + getAppTotal(app), 0)
   }
 
   const currentTotal = getTotal(appointments)
@@ -64,46 +65,26 @@ export default function IncassiPage() {
     ? ((diff / prevTotal) * 100).toFixed(0)
     : 0
 
-  // 🎯 ANALISI SERVIZI
-  function analyzeServices() {
+  // 📅 TOTALE PER GIORNO
+  function getDailyTotals() {
     const map = {}
-    const prevMap = {}
 
     appointments.forEach(app => {
-      app.appointment_services.forEach(s => {
-        const serv = s.services
-        map[serv.id] = map[serv.id] || { nome: serv.nome, count: 0 }
-        map[serv.id].count++
-      })
+      const date = new Date(app.data).toDateString()
+
+      if (!map[date]) map[date] = 0
+      map[date] += getAppTotal(app)
     })
 
-    prevAppointments.forEach(app => {
-      app.appointment_services.forEach(s => {
-        const serv = s.services
-        prevMap[serv.id] = (prevMap[serv.id] || 0) + 1
-      })
-    })
-
-    const suggestions = []
-
-    const top = Object.values(map).sort((a,b)=>b.count-a.count)[0]
-    if (top) {
-      suggestions.push(`💡 Spingi ${top.nome}: è il più richiesto`)
-    }
-
-    Object.keys(map).forEach(id => {
-      const curr = map[id].count
-      const prev = prevMap[id] || 0
-
-      if (prev > 0 && curr < prev) {
-        suggestions.push(`⚠️ ${map[id].nome} è in calo`)
-      }
-    })
-
-    return suggestions
+    return Object.entries(map)
+      .map(([date, total]) => ({
+        date: new Date(date),
+        total
+      }))
+      .sort((a, b) => a.date - b.date)
   }
 
-  const suggestions = analyzeServices()
+  const dailyTotals = getDailyTotals()
 
   function changeMonth(offset) {
     const d = new Date(month)
@@ -142,8 +123,31 @@ export default function IncassiPage() {
         <p className={`mt-2 font-semibold ${
           diff >= 0 ? 'text-green-600' : 'text-red-500'
         }`}>
-          {diff >= 0 ? '▲' : '▼'} {diff} € ({diffPercent}% rispetto al mese scorso)
+          {diff >= 0 ? '▲' : '▼'} {diff} € ({diffPercent}%)
         </p>
+      </div>
+
+      {/* 📊 GIORNO PER GIORNO */}
+      <div className="bg-white p-6 rounded-2xl shadow">
+        <h2 className="text-pink-700 font-semibold mb-3">
+          📊 Incasso giornaliero
+        </h2>
+
+        <div className="space-y-2 max-h-64 overflow-y-auto">
+          {dailyTotals.map((d, i) => (
+            <div key={i} className="flex justify-between border-b pb-1">
+              <span>
+                {d.date.toLocaleDateString('it-IT', {
+                  day: 'numeric',
+                  month: 'short'
+                })}
+              </span>
+              <span className="font-semibold">
+                € {d.total}
+              </span>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* 📈 CONFRONTO */}
@@ -163,23 +167,6 @@ export default function IncassiPage() {
             € {prevTotal}
           </span>
         </div>
-      </div>
-
-      {/* 🎯 SUGGERIMENTI */}
-      <div className="bg-white p-6 rounded-2xl shadow space-y-2">
-        <h2 className="text-pink-700 font-semibold">
-          Suggerimenti intelligenti
-        </h2>
-
-        {suggestions.length === 0 && (
-          <div className="text-gray-400">Dati insufficienti</div>
-        )}
-
-        {suggestions.map((s, i) => (
-          <div key={i} className="bg-pink-50 p-3 rounded-xl text-pink-700">
-            {s}
-          </div>
-        ))}
       </div>
 
     </div>
