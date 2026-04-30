@@ -260,66 +260,118 @@ export default function CalendarPage() {
         })}
       </div>
 
-      {/* MODAL */}
+      {/* MODAL PRO */}
       {open && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white w-full max-w-lg max-h-[90vh] rounded-2xl shadow-xl flex flex-col">
 
-            <div className="p-4 border-b flex justify-between">
-              <h2>{editMode ? 'Modifica' : 'Nuovo'} appuntamento</h2>
+          <div className="bg-white w-full max-w-lg max-h-[90vh] rounded-2xl shadow-xl flex flex-col border border-pink-100">
+
+            {/* HEADER */}
+            <div className="p-4 border-b flex justify-between items-center">
+              <h2 className="font-bold text-lg text-pink-700">
+                {editMode ? 'Modifica appuntamento' : 'Nuovo appuntamento'}
+              </h2>
               <button onClick={() => setOpen(false)}>✖</button>
             </div>
 
+            {/* CONTENUTO */}
             <div className="p-4 space-y-4 overflow-y-auto">
 
-              <input
-                placeholder="Cliente..."
-                value={clientSearch}
-                onChange={e => setClientSearch(e.target.value)}
-                className="border p-2 w-full"
-              />
+              {/* CLIENTE */}
+              <div>
+                <div className="text-sm font-semibold text-pink-600 mb-1">
+                  Cliente
+                </div>
 
-              <div className="max-h-32 overflow-y-auto border">
-                {filteredClients.map(c => (
-                  <div key={c.id} onClick={() => {
-                    setClientId(c.id)
-                    setClientSearch(c.nome)
-                  }}>
-                    {c.nome}
+                <input
+                  placeholder="Scrivi cliente..."
+                  value={clientSearch}
+                  onChange={e => setClientSearch(e.target.value)}
+                  className="border p-2 w-full rounded-lg"
+                />
+
+                <div className="max-h-32 overflow-y-auto mt-2 border rounded-lg">
+                  {filteredClients.map(c => (
+                    <div
+                      key={c.id}
+                      onClick={() => {
+                        setClientId(c.id)
+                        setClientSearch(c.nome)
+                      }}
+                      className="p-2 hover:bg-pink-100 cursor-pointer"
+                    >
+                      {c.nome}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* ORARIO */}
+              <input type="time" value={time} onChange={e => setTime(e.target.value)} />
+
+              {/* SERVIZI */}
+              <div>
+                <div className="text-sm font-semibold text-pink-600 mb-2">
+                  Servizi
+                </div>
+
+                {Object.entries(
+                  services.reduce((acc, s) => {
+                    const cat = s.categoria || 'Altro'
+                    if (!acc[cat]) acc[cat] = []
+                    acc[cat].push(s)
+                    return acc
+                  }, {})
+                ).map(([cat, list]) => (
+                  <div key={cat} className="mb-4">
+
+                    <div className="text-xs font-bold text-gray-500 mb-1 uppercase">
+                      {cat}
+                    </div>
+
+                    {list.map(s => {
+                      const selected = selectedServices.find(x => x.id === s.id)
+
+                      return (
+                        <div
+                          key={s.id}
+                          onClick={() => toggleService(s)}
+                          className={`p-3 rounded-xl cursor-pointer border mb-1 ${
+                            selected
+                              ? 'bg-pink-500 text-white'
+                              : 'bg-white hover:bg-pink-50'
+                          }`}
+                        >
+                          {s.nome} - €{s.prezzo}
+                        </div>
+                      )
+                    })}
+
                   </div>
                 ))}
               </div>
 
-              <input type="time" value={time} onChange={e => setTime(e.target.value)} />
-
-              <input type="number" value={duration} onChange={e => setDuration(e.target.value)} />
-
-              {Object.entries(
-                services.reduce((acc, s) => {
-                  const cat = s.categoria || 'Altro'
-                  if (!acc[cat]) acc[cat] = []
-                  acc[cat].push(s)
-                  return acc
-                }, {})
-              ).map(([cat, list]) => (
-                <div key={cat}>
-                  <div>{cat}</div>
-                  {list.map(s => (
-                    <div key={s.id} onClick={() => toggleService(s)}>
-                      {s.nome} €{s.prezzo}
-                    </div>
-                  ))}
-                </div>
-              ))}
-
             </div>
 
+            {/* FOOTER */}
             <div className="p-4 border-t flex gap-2">
-              <button onClick={saveAppointment}>Salva</button>
-              <button onClick={() => setOpen(false)}>Chiudi</button>
+              <button
+                onClick={saveAppointment}
+                className="bg-pink-600 text-white w-full py-2 rounded-xl"
+              >
+                Salva
+              </button>
+
+              <button
+                onClick={() => setOpen(false)}
+                className="bg-gray-300 w-full py-2 rounded-xl"
+              >
+                Annulla
+              </button>
             </div>
 
           </div>
+
         </div>
       )}
 

@@ -24,7 +24,7 @@ export default function RootLayout({ children }) {
           <aside className="w-64 bg-white shadow-lg p-4 hidden md:block">
 
             <h1 className="text-xl font-bold text-pink-600 mb-6">
-              Beauty App 💅
+              BeautyLab Antonella 💅
             </h1>
 
             <nav className="flex flex-col gap-2">
