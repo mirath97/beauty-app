@@ -85,9 +85,10 @@ export default function CalendarPage() {
     })
   }
 
+  // 🔥 FIX INCASSI
   function getTotal(app) {
-    return app.appointment_services.reduce(
-      (acc, s) => acc + (s.services.prezzo || 0),
+    return (app.appointment_services || []).reduce(
+      (acc, s) => acc + Number(s.services?.prezzo || 0),
       0
     )
   }
@@ -96,7 +97,7 @@ export default function CalendarPage() {
     return dayApps.reduce((tot, app) => tot + getTotal(app), 0)
   }
 
-  // 🤖 AI (AGGIUNTA, NON SOSTITUZIONE)
+  // 🤖 AI
   function analyzeWeek() {
     return getWeekDays().map(day => {
       const apps = getAppointmentsForDay(day)
@@ -132,6 +133,32 @@ export default function CalendarPage() {
         icon
       }
     })
+  }
+
+  // 🔔 CLIENTI INATTIVI
+  function getInactiveClients() {
+    const map = {}
+
+    appointments.forEach(app => {
+      const id = app.client_id
+      const date = new Date(app.data)
+
+      if (!map[id] || new Date(map[id].data) < date) {
+        map[id] = app
+      }
+    })
+
+    const now = new Date()
+
+    return Object.values(map)
+      .map(app => {
+        const diff = Math.floor(
+          (now - new Date(app.data)) / (1000 * 60 * 60 * 24)
+        )
+        return { ...app, diff }
+      })
+      .filter(c => c.diff >= 30)
+      .sort((a, b) => b.diff - a.diff)
   }
 
   function openNew(day) {
@@ -210,11 +237,27 @@ export default function CalendarPage() {
     fetchAll()
   }
 
+  // 📲 WHATSAPP MIGLIORATO
   function sendWhatsAppReminder(app) {
     const phone = app.clients?.telefono
+    const nome = app.clients?.nome
+
     if (!phone) return
 
-    const text = `Promemoria appuntamento 💅`
+    const date = new Date(app.data).toLocaleDateString('it-IT')
+    const time = new Date(app.data).toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+
+    const text = `Ciao ${nome} 💅
+Ti ricordiamo il tuo appuntamento:
+
+📅 ${date}
+⏰ ${time}
+
+Ti aspettiamo!`
+
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`)
   }
 
@@ -232,7 +275,28 @@ export default function CalendarPage() {
         <button onClick={() => changeWeek(1)}>→</button>
       </div>
 
-      {/* 🤖 AI COLORATA */}
+      {/* 🔔 CLIENTI DA RICHIAMARE */}
+      <div className="bg-yellow-100 p-3 rounded-xl">
+        <div className="font-bold mb-2">🔔 Clienti da ricontattare</div>
+
+        {getInactiveClients().slice(0, 3).map((c, i) => (
+          <div key={i} className="flex justify-between bg-white p-2 rounded mb-1 text-sm">
+            <div>
+              <div>{c.clients?.nome}</div>
+              <div className="text-xs text-gray-500">{c.diff} giorni</div>
+            </div>
+
+            <button
+              onClick={() => sendWhatsAppReminder(c)}
+              className="bg-green-500 text-white px-2 py-1 rounded text-xs"
+            >
+              📲 Scrivi
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {/* 🤖 AI */}
       <div className="bg-white p-4 rounded-xl shadow">
         <div className="font-bold text-pink-700 mb-2">
           🤖 Suggerimenti intelligenti
@@ -253,7 +317,6 @@ export default function CalendarPage() {
 
       {/* CALENDARIO */}
       <div className="grid grid-cols-7 gap-2">
-
         {getWeekDays().map((day, i) => {
           const dayApps = getAppointmentsForDay(day)
 
@@ -305,7 +368,6 @@ export default function CalendarPage() {
             </div>
           )
         })}
-
       </div>
 
     </div>
