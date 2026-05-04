@@ -13,31 +13,13 @@ export default function Dashboard() {
   async function fetchData() {
     const supabase = createSupabaseClient()
 
-    // 🔥 prendi tutte le tabelle
-    const { data: apps } = await supabase
-      .from('appointments')
-      .select('*')
-
-    const { data: clients } = await supabase
-      .from('clients')
-      .select('*')
-
-    const { data: services } = await supabase
-      .from('services')
-      .select('*')
-
-    const { data: appServices } = await supabase
-      .from('appointment_services')
-      .select('*')
-
-    console.log('APPS:', apps)
-    console.log('CLIENTS:', clients)
-    console.log('SERVICES:', services)
-    console.log('REL:', appServices)
+    const { data: apps } = await supabase.from('appointments').select('*')
+    const { data: clients } = await supabase.from('clients').select('*')
+    const { data: services } = await supabase.from('services').select('*')
+    const { data: appServices } = await supabase.from('appointment_services').select('*')
 
     if (!apps) return
 
-    // 🔥 JOIN MANUALE
     const enriched = apps.map(app => {
       const client = clients?.find(c => c.id === app.client_id)
 
@@ -54,10 +36,9 @@ export default function Dashboard() {
       }
     })
 
-    setAppointments(enriched || [])
+    setAppointments(enriched)
   }
 
-  // 💰 totale incasso
   const total = appointments.reduce((tot, app) => {
     return tot + (app.services || []).reduce(
       (acc, s) => acc + Number(s?.prezzo || 0),
@@ -72,7 +53,6 @@ export default function Dashboard() {
         Dashboard
       </h1>
 
-      {/* KPI */}
       <div className="grid grid-cols-2 gap-3">
 
         <div className="bg-pink-100 p-4 rounded-xl">
@@ -91,24 +71,14 @@ export default function Dashboard() {
 
       </div>
 
-      {/* LISTA */}
       <div className="bg-white p-4 rounded-xl shadow">
 
         <div className="font-bold mb-2">
           Tutti gli appuntamenti
         </div>
 
-        {appointments.length === 0 && (
-          <div className="text-gray-500 text-sm">
-            Nessun dato trovato
-          </div>
-        )}
-
         {appointments.map((app, i) => (
-          <div
-            key={i}
-            className="flex justify-between border-b py-2 text-sm"
-          >
+          <div key={i} className="flex justify-between border-b py-2 text-sm">
 
             <span>
               {app.client?.nome || 'Cliente'}
