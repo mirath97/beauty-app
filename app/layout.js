@@ -7,13 +7,14 @@ import { usePathname } from 'next/navigation'
 export default function RootLayout({ children }) {
   const pathname = usePathname()
 
-  const links = [
-    { name: '📅 Calendario', href: '/dashboard/calendar' },
-    { name: '💅 Servizi', href: '/dashboard/services' },
-    { name: '💰 Incassi', href: '/dashboard/incassi' },
-    { name: '🤖 AI', href: '/dashboard/ai' },
-	{ name: '👤 Clienti', href: '/dashboard/clients' }
-  ]
+const links = [
+  { name: '🏠 Dashboard', href: '/dashboard' },
+  { name: '📅 Calendario', href: '/dashboard/calendar' },
+  { name: '💅 Servizi', href: '/dashboard/services' },
+  { name: '💰 Incassi', href: '/dashboard/incassi' },
+  { name: '🤖 AI', href: '/dashboard/ai' },
+  { name: '👤 Clienti', href: '/dashboard/clients' }
+]
 
   return (
     <html lang="it">
@@ -75,7 +76,7 @@ export default function RootLayout({ children }) {
 
           {/* 📦 CONTENUTO */}
           <main className="flex-1 p-4 md:p-6 pb-16 md:pb-6">
-            {children}
+		  {children}
           </main>
 
         </div>

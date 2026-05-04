@@ -5,7 +5,8 @@ import { getSupabase } from '@/lib/supabaseClient'
 
 export default function IncassiPage() {
   const [appointments, setAppointments] = useState([])
-  const [selectedDate, setSelectedDate] = useState('')
+  const [month, setMonth] = useState(new Date().getMonth())
+  const [year, setYear] = useState(new Date().getFullYear())
 
   useEffect(() => {
     fetchData()
@@ -14,46 +15,51 @@ export default function IncassiPage() {
   async function fetchData() {
     const supabase = getSupabase()
 
-    const { data, error } = await supabase
-      .from('appointments')
-      .select(`
-        data,
-        clients (nome),
-        appointment_services (services (prezzo))
-      `)
+    const { data: apps } = await supabase.from('appointments').select('*')
+    const { data: services } = await supabase.from('services').select('*')
+    const { data: appServices } = await supabase.from('appointment_services').select('*')
 
-    if (error) {
-      console.error(error)
-      return
+    const enriched = apps.map(app => {
+      const rel = appServices.filter(r => r.appointment_id === app.id)
+
+      const serv = rel.map(r =>
+        services.find(s => s.id === r.service_id)
+      )
+
+      return { ...app, services: serv }
+    })
+
+    setAppointments(enriched)
+  }
+
+  const filtered = appointments.filter(app => {
+    const d = new Date(app.data)
+    return d.getMonth() === month && d.getFullYear() === year
+  })
+
+  const total = filtered.reduce((tot, app) => {
+    return tot + (app.services || []).reduce(
+      (acc, s) => acc + Number(s?.prezzo || 0),
+      0
+    )
+  }, 0)
+
+  function changeMonth(dir) {
+    let newMonth = month + dir
+    let newYear = year
+
+    if (newMonth < 0) {
+      newMonth = 11
+      newYear--
     }
 
-    setAppointments(data || [])
-  }
+    if (newMonth > 11) {
+      newMonth = 0
+      newYear++
+    }
 
-  function isSameDay(dateStr, selected) {
-    if (!selected) return true
-
-    const d1 = new Date(dateStr)
-    const d2 = new Date(selected)
-
-    return (
-      d1.getDate() === d2.getDate() &&
-      d1.getMonth() === d2.getMonth() &&
-      d1.getFullYear() === d2.getFullYear()
-    )
-  }
-
-  const filtered = appointments.filter(a =>
-    isSameDay(a.data, selectedDate)
-  )
-
-  function getTotal() {
-    return filtered.reduce((tot, app) => {
-      return tot + (app.appointment_services || []).reduce(
-        (acc, s) => acc + Number(s.services?.prezzo || 0),
-        0
-      )
-    }, 0)
+    setMonth(newMonth)
+    setYear(newYear)
   }
 
   return (
@@ -63,53 +69,20 @@ export default function IncassiPage() {
         Incassi 💰
       </h1>
 
-      {/* FILTRO DATA */}
-      <div className="bg-white p-3 rounded-xl shadow">
-        <div className="text-sm mb-1">Seleziona giorno</div>
+      <div className="flex justify-between items-center">
 
-        <input
-          type="date"
-          value={selectedDate}
-          onChange={e => setSelectedDate(e.target.value)}
-          className="border p-2 rounded w-full"
-        />
-      </div>
+        <button onClick={() => changeMonth(-1)}>⬅</button>
 
-      {/* TOTALE */}
-      <div className="bg-green-100 p-4 rounded-xl">
-        <div className="text-sm">Totale</div>
-        <div className="text-2xl font-bold">
-          € {getTotal()}
-        </div>
-      </div>
-
-      {/* LISTA */}
-      <div className="bg-white p-4 rounded-xl shadow">
-        <div className="font-bold mb-2">
-          Appuntamenti
+        <div className="font-bold">
+          {month + 1}/{year}
         </div>
 
-        {filtered.length === 0 && (
-          <div className="text-gray-500 text-sm">
-            Nessun dato
-          </div>
-        )}
+        <button onClick={() => changeMonth(1)}>➡</button>
 
-        {filtered.map((app, i) => (
-          <div
-            key={i}
-            className="flex justify-between border-b py-1 text-sm"
-          >
-            <span>{app.clients?.nome}</span>
+      </div>
 
-            <span>
-              € {(app.appointment_services || []).reduce(
-                (acc, s) => acc + Number(s.services?.prezzo || 0),
-                0
-              )}
-            </span>
-          </div>
-        ))}
+      <div className="bg-green-100 p-4 rounded-xl text-xl font-bold">
+        Totale mese: € {total}
       </div>
 
     </div>
