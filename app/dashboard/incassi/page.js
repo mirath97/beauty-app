@@ -13,24 +13,16 @@ export default function IncassiPage() {
     fetchData()
   }, [])
 
-  async function fetchData() {
-    const supabase = createSupabaseClient()
+async function fetchData() {
+  const supabase = createSupabaseClient()
+  if (!supabase) return
 
-    const { data, error } = await supabase
-      .from('appointments')
-      .select(`
-        data,
-        clients (nome),
-        appointment_services (services (prezzo))
-      `)
+  const { data } = await supabase
+    .from('appointments')
+    .select('*')
 
-    if (error) {
-      console.error('Errore:', error)
-      return
-    }
-
-    setAppointments(data || [])
-  }
+  setAppointments(data || [])
+}
 
   // 📅 filtro giorno
   function isSameDay(dateStr, selected) {

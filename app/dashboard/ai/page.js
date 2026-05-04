@@ -12,19 +12,16 @@ export default function AIPage() {
     fetchData()
   }, [])
 
-  async function fetchData() {
-    const supabase = createSupabaseClient() // ✅ SOLO QUI
+async function fetchData() {
+  const supabase = createSupabaseClient()
+  if (!supabase) return
 
-    const { data } = await supabase
-      .from('appointments')
-      .select(`
-        data,
-        clients (nome),
-        appointment_services (services (nome, prezzo))
-      `)
+  const { data } = await supabase
+    .from('appointments')
+    .select('*')
 
-    setAppointments(data || [])
-  }
+  setAppointments(data || [])
+}
 
   function getTopServices() {
     const map = {}
