@@ -4,40 +4,29 @@ import { useEffect, useState } from 'react'
 import { getSupabase } from '@/lib/supabaseClient'
 
 export default function Dashboard() {
-  const [data, setData] = useState([])
+  const [clients, setClients] = useState([])
 
   useEffect(() => {
-    fetchData()
+    run()
   }, [])
 
-  async function fetchData() {
+  async function run() {
     const supabase = getSupabase()
 
     const { data, error } = await supabase
       .from('clients')
       .select('*')
 
-    console.log('DATA:', data)
+    console.log('RESULT:', data)
     console.log('ERROR:', error)
 
-    setData(data || [])
+    setClients(data || [])
   }
 
   return (
-    <div className="p-4">
-      <h1 className="text-xl font-bold text-pink-700">
-        TEST DATI
-      </h1>
-
-      <div className="mt-2">
-        Record: {data.length}
-      </div>
-
-      {data.map((c, i) => (
-        <div key={i}>
-          {c.nome} - {c.telefono}
-        </div>
-      ))}
+    <div style={{ padding: 20 }}>
+      <h1>DEBUG DATI</h1>
+      <div>Record: {clients.length}</div>
     </div>
   )
 }
