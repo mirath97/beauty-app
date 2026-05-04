@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { createSupabaseClient } from '@/lib/supabaseClient'
+import { getSupabase } from '@/lib/supabaseClient'
 
 export default function IncassiPage() {
   const [appointments, setAppointments] = useState([])
@@ -12,7 +12,7 @@ export default function IncassiPage() {
   }, [])
 
   async function fetchData() {
-    const supabase = createSupabaseClient()
+    const supabase = getSupabase()
 
     const { data, error } = await supabase
       .from('appointments')

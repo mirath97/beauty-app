@@ -3,7 +3,7 @@
 export const dynamic = 'force-dynamic'
 
 import { useEffect, useState } from 'react'
-import { createSupabaseClient } from '@/lib/supabaseClient'
+import { getSupabase } from '@/lib/supabaseClient'
 
 export default function RemindersPage() {
   const [appointments, setAppointments] = useState([])

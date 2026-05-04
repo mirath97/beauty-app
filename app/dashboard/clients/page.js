@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { createSupabaseClient } from '@/lib/supabaseClient'
+import { getSupabase } from '@/lib/supabaseClient'
 
 export default function ClientsPage() {
   const [clients, setClients] = useState([])
@@ -19,7 +19,7 @@ export default function ClientsPage() {
   }
 
   async function addClient() {
-    const supabase = createSupabaseClient()
+    const supabase = getSupabase()
 
     await supabase.from('clients').insert({
       nome: name,

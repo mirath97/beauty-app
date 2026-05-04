@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { createSupabaseClient } from '@/lib/supabaseClient'
+import { getSupabase } from '@/lib/supabaseClient'
 
 export default function AIPage() {
   const [appointments, setAppointments] = useState([])
@@ -11,7 +11,7 @@ export default function AIPage() {
   }, [])
 
   async function fetchData() {
-    const supabase = createSupabaseClient()
+    const supabase = getSupabase()
 
     const { data: apps } = await supabase.from('appointments').select('*')
     const { data: clients } = await supabase.from('clients').select('*')

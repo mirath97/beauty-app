@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { createSupabaseClient } from '@/lib/supabaseClient'
+import { getSupabase } from '@/lib/supabaseClient'
 
 export default function CalendarPage() {
   const [appointments, setAppointments] = useState([])
@@ -19,7 +19,7 @@ export default function CalendarPage() {
   }, [])
 
   async function fetchAll() {
-    const supabase = createSupabaseClient()
+    const supabase = getSupabase()
 
     const { data: apps } = await supabase.from('appointments').select('*')
     const { data: clientsData } = await supabase.from('clients').select('*')

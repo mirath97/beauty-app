@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { createSupabaseClient } from '@/lib/supabaseClient'
+import { getSupabase } from '@/lib/supabaseClient'
 
 export default function ServicesPage() {
   const [services, setServices] = useState([])
@@ -14,7 +14,7 @@ export default function ServicesPage() {
   }, [])
 
   async function fetchServices() {
-    const supabase = createSupabaseClient()
+   const supabase = getSupabase()
     const { data } = await supabase.from('services').select('*')
     setServices(data || [])
   }
