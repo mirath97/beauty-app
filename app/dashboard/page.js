@@ -11,18 +11,24 @@ export default function Dashboard() {
     fetchData()
   }, [])
 
-  async function fetchData() {
-    const { data } = await supabase
-      .from('appointments')
-      .select(`
-        data,
-        clients (nome),
-        appointment_services (services (prezzo))
-      `)
+async function fetchData() {
+  const supabase = createSupabaseClient()
+  console.log('SUPABASE:', supabase)
 
-    setAppointments(data || [])
+  if (!supabase) {
+    console.log('❌ supabase NULL')
+    return
   }
 
+  const { data, error } = await supabase
+    .from('appointments')
+    .select('*')
+
+  console.log('DATA:', data)
+  console.log('ERROR:', error)
+
+  setAppointments(data || [])
+}
   function isToday(date) {
     const today = new Date()
     const d = new Date(date)

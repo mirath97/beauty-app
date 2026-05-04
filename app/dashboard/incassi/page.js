@@ -5,236 +5,114 @@ import { createSupabaseClient } from '@/lib/supabaseClient'
 
 export default function IncassiPage() {
   const [appointments, setAppointments] = useState([])
-  const [prevAppointments, setPrevAppointments] = useState([])
-  const [month, setMonth] = useState(new Date())
+  const [selectedDate, setSelectedDate] = useState('')
 
   useEffect(() => {
     fetchData()
-  }, [month])
+  }, [])
 
   async function fetchData() {
-    const start = new Date(month.getFullYear(), month.getMonth(), 1)
-    const end = new Date(month.getFullYear(), month.getMonth() + 1, 0)
+    const supabase = createSupabaseClient()
 
-    const prevStart = new Date(month.getFullYear(), month.getMonth() - 1, 1)
-    const prevEnd = new Date(month.getFullYear(), month.getMonth(), 0)
-
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('appointments')
       .select(`
         data,
-        clients (id, nome),
-        appointment_services (
-          services (id, nome, prezzo)
-        )
+        clients (nome),
+        appointment_services (services (prezzo))
       `)
-      .gte('data', prevStart.toISOString())
-      .lte('data', end.toISOString())
 
-    const all = data || []
+    if (error) {
+      console.error('Errore:', error)
+      return
+    }
 
-    const current = []
-    const prev = []
-
-    all.forEach(app => {
-      const d = new Date(app.data)
-      if (d >= start && d <= end) current.push(app)
-      if (d >= prevStart && d <= prevEnd) prev.push(app)
-    })
-
-    setAppointments(current)
-    setPrevAppointments(prev)
+    setAppointments(data || [])
   }
 
-  // 💰 totale appuntamento
-  function getAppTotal(app) {
-    return (app.appointment_services || []).reduce((acc, s) => {
-      return acc + Number(s.services?.prezzo || 0)
+  // 📅 filtro giorno
+  function isSameDay(dateStr, selected) {
+    if (!selected) return true
+
+    const d1 = new Date(dateStr)
+    const d2 = new Date(selected)
+
+    return (
+      d1.getDate() === d2.getDate() &&
+      d1.getMonth() === d2.getMonth() &&
+      d1.getFullYear() === d2.getFullYear()
+    )
+  }
+
+  const filtered = appointments.filter(a =>
+    isSameDay(a.data, selectedDate)
+  )
+
+  // 💰 totale
+  function getTotal() {
+    return filtered.reduce((tot, app) => {
+      return tot + (app.appointment_services || []).reduce(
+        (acc, s) => acc + Number(s.services?.prezzo || 0),
+        0
+      )
     }, 0)
   }
 
-  function getTotal(apps) {
-    return apps.reduce((tot, app) => tot + getAppTotal(app), 0)
-  }
-
-  const currentTotal = getTotal(appointments)
-  const prevTotal = getTotal(prevAppointments)
-
-  const diff = currentTotal - prevTotal
-  const diffPercent = prevTotal > 0
-    ? ((diff / prevTotal) * 100).toFixed(0)
-    : 0
-
-  // 📅 GENERA TUTTI I GIORNI DEL MESE
-  function getFullMonthDays() {
-    const year = month.getFullYear()
-    const m = month.getMonth()
-
-    const daysInMonth = new Date(year, m + 1, 0).getDate()
-
-    const map = {}
-
-    appointments.forEach(app => {
-      const key = new Date(app.data).toDateString()
-      if (!map[key]) map[key] = 0
-      map[key] += getAppTotal(app)
-    })
-
-    return Array.from({ length: daysInMonth }).map((_, i) => {
-      const date = new Date(year, m, i + 1)
-      const key = date.toDateString()
-
-      return {
-        date,
-        total: map[key] || 0
-      }
-    })
-  }
-
-  const dailyTotals = getFullMonthDays()
-
-  // 🔥 OGGI
-  const todayTotal = dailyTotals.find(d =>
-    d.date.toDateString() === new Date().toDateString()
-  )?.total || 0
-
-  // 🔥 SETTIMANA
-  function getWeekTotal() {
-    const now = new Date()
-    const start = new Date(now)
-    start.setDate(now.getDate() - 7)
-
-    return appointments
-      .filter(a => new Date(a.data) >= start)
-      .reduce((tot, app) => tot + getAppTotal(app), 0)
-  }
-
-  const weekTotal = getWeekTotal()
-
-  // 🔥 MIGLIOR GIORNO
-  const bestDay = [...dailyTotals].sort((a, b) => b.total - a.total)[0]
-
-  // 🔥 PEGGIOR GIORNO
-  const worstDay = [...dailyTotals].sort((a, b) => a.total - b.total)[0]
-
-  function changeMonth(offset) {
-    const d = new Date(month)
-    d.setMonth(d.getMonth() + offset)
-    setMonth(d)
-  }
-
   return (
-    <div className="space-y-6">
+    <div className="p-4 space-y-4">
 
-      {/* HEADER */}
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-pink-700">
-         INCASSI DEBUG
-        </h1>
+      <h1 className="text-2xl font-bold text-pink-700">
+        Incassi 💰
+      </h1>
 
-        <div className="flex gap-2">
-          <button onClick={() => changeMonth(-1)}>←</button>
-          <div>
-            {month.toLocaleDateString('it-IT', {
-              month: 'long',
-              year: 'numeric'
-            })}
-          </div>
-          <button onClick={() => changeMonth(1)}>→</button>
+      {/* FILTRO DATA */}
+      <div className="bg-white p-3 rounded-xl shadow">
+        <div className="text-sm mb-1">Seleziona giorno</div>
+
+        <input
+          type="date"
+          value={selectedDate}
+          onChange={e => setSelectedDate(e.target.value)}
+          className="border p-2 rounded w-full"
+        />
+      </div>
+
+      {/* KPI */}
+      <div className="bg-green-100 p-4 rounded-xl">
+        <div className="text-sm">Totale</div>
+        <div className="text-2xl font-bold">
+          € {getTotal()}
         </div>
       </div>
 
-      {/* 💰 KPI VELOCI */}
-      <div className="grid grid-cols-3 gap-3">
-        <div className="bg-green-100 p-3 rounded-xl text-center">
-          <div className="text-xs">Oggi</div>
-          <div className="font-bold">€ {todayTotal}</div>
+      {/* LISTA */}
+      <div className="bg-white p-4 rounded-xl shadow">
+
+        <div className="font-bold mb-2">
+          Appuntamenti
         </div>
 
-        <div className="bg-blue-100 p-3 rounded-xl text-center">
-          <div className="text-xs">Settimana</div>
-          <div className="font-bold">€ {weekTotal}</div>
-        </div>
-
-        <div className="bg-purple-100 p-3 rounded-xl text-center">
-          <div className="text-xs">Mese</div>
-          <div className="font-bold">€ {currentTotal}</div>
-        </div>
-      </div>
-
-      {/* 💰 TOTALE */}
-      <div className="bg-white p-6 rounded-2xl shadow">
-        <h2 className="text-pink-600">Totale mese</h2>
-        <p className="text-3xl font-bold">
-          € {currentTotal}
-        </p>
-
-        <p className={`mt-2 font-semibold ${
-          diff >= 0 ? 'text-green-600' : 'text-red-500'
-        }`}>
-          {diff >= 0 ? '▲' : '▼'} {diff} € ({diffPercent}%)
-        </p>
-      </div>
-
-      {/* 📊 GIORNO PER GIORNO */}
-      <div className="bg-white p-6 rounded-2xl shadow">
-        <h2 className="text-pink-700 font-semibold mb-3">
-          📊 Incasso giornaliero
-        </h2>
-
-        <div className="space-y-2 max-h-64 overflow-y-auto">
-          {dailyTotals.map((d, i) => (
-            <div key={i} className="flex justify-between border-b pb-1">
-              <span>
-                {d.date.toLocaleDateString('it-IT', {
-                  day: 'numeric',
-                  month: 'short'
-                })}
-              </span>
-              <span className="font-semibold">
-                € {d.total}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* 🏆 INSIGHT */}
-      <div className="bg-white p-6 rounded-2xl shadow">
-        <h2 className="text-pink-700 font-semibold mb-2">
-          🧠 Insight
-        </h2>
-
-        {bestDay && (
-          <div className="text-green-600">
-            🔥 Giorno migliore: € {bestDay.total}
+        {filtered.length === 0 && (
+          <div className="text-gray-500 text-sm">
+            Nessun dato
           </div>
         )}
 
-        {worstDay && (
-          <div className="text-red-500">
-            ⚠️ Giorno peggiore: € {worstDay.total}
+        {filtered.map((app, i) => (
+          <div key={i} className="flex justify-between border-b py-1 text-sm">
+
+            <span>{app.clients?.nome}</span>
+
+            <span>
+              € {(app.appointment_services || []).reduce(
+                (acc, s) => acc + Number(s.services?.prezzo || 0),
+                0
+              )}
+            </span>
+
           </div>
-        )}
-      </div>
+        ))}
 
-      {/* 📈 CONFRONTO */}
-      <div className="bg-white p-6 rounded-2xl shadow">
-        <h2 className="text-pink-700 font-semibold mb-2">
-          Confronto mese scorso
-        </h2>
-
-        <div className="flex justify-between">
-          <span>Questo mese</span>
-          <span className="font-semibold">€ {currentTotal}</span>
-        </div>
-
-        <div className="flex justify-between">
-          <span>Mese scorso</span>
-          <span className="font-semibold text-gray-500">
-            € {prevTotal}
-          </span>
-        </div>
       </div>
 
     </div>
