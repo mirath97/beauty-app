@@ -5,56 +5,144 @@ import { getSupabase } from '@/lib/supabaseClient'
 
 export default function ServicesPage() {
   const [services, setServices] = useState([])
-  const [editId, setEditId] = useState(null)
-  const [name, setName] = useState('')
-  const [price, setPrice] = useState('')
+  const [editingId, setEditingId] = useState(null)
+
+  const [nome, setNome] = useState('')
+  const [prezzo, setPrezzo] = useState('')
+  const [categoria, setCategoria] = useState('Unghie')
 
   useEffect(() => {
     fetchServices()
   }, [])
 
   async function fetchServices() {
-   const supabase = getSupabase()
-    const { data } = await supabase.from('services').select('*')
+    const supabase = getSupabase()
+
+    const { data } = await supabase
+      .from('services')
+      .select('*')
+
     setServices(data || [])
   }
 
-  async function updateService() {
-    const supabase = createSupabaseClient()
+  // ➕ aggiungi / modifica
+  async function saveService() {
+    const supabase = getSupabase()
 
-    await supabase
-      .from('services')
-      .update({ nome: name, prezzo: price })
-      .eq('id', editId)
+    if (editingId) {
+      await supabase
+        .from('services')
+        .update({
+          nome,
+          prezzo,
+          categoria
+        })
+        .eq('id', editingId)
+    } else {
+      await supabase.from('services').insert({
+        nome,
+        prezzo,
+        categoria
+      })
+    }
 
-    setEditId(null)
+    resetForm()
     fetchServices()
   }
+
+  function resetForm() {
+    setNome('')
+    setPrezzo('')
+    setCategoria('Unghie')
+    setEditingId(null)
+  }
+
+  function editService(s) {
+    setEditingId(s.id)
+    setNome(s.nome)
+    setPrezzo(s.prezzo)
+    setCategoria(s.categoria || 'Unghie')
+  }
+
+  // 📦 raggruppa per categoria
+  const grouped = services.reduce((acc, s) => {
+    const cat = s.categoria || 'Altro'
+    if (!acc[cat]) acc[cat] = []
+    acc[cat].push(s)
+    return acc
+  }, {})
 
   return (
     <div className="p-4 space-y-4">
 
-      <h1 className="text-xl font-bold text-pink-700">Servizi</h1>
+      <h1 className="text-2xl font-bold text-pink-700">
+        Servizi 💅
+      </h1>
 
-      {services.map(s => (
-        <div key={s.id} className="bg-white p-2 rounded shadow">
+      {/* FORM */}
+      <div className="bg-white p-4 rounded-xl shadow space-y-2">
 
-          {editId === s.id ? (
-            <>
-              <input value={name} onChange={e => setName(e.target.value)} />
-              <input value={price} onChange={e => setPrice(e.target.value)} />
-              <button onClick={updateService}>Salva</button>
-            </>
-          ) : (
-            <div className="flex justify-between">
-              <span>{s.nome} - €{s.prezzo}</span>
-              <button onClick={() => {
-                setEditId(s.id)
-                setName(s.nome)
-                setPrice(s.prezzo)
-              }}>✏️</button>
+        <input
+          placeholder="Nome servizio"
+          value={nome}
+          onChange={e => setNome(e.target.value)}
+          className="border p-2 rounded w-full"
+        />
+
+        <input
+          placeholder="Prezzo"
+          value={prezzo}
+          onChange={e => setPrezzo(e.target.value)}
+          className="border p-2 rounded w-full"
+        />
+
+        <select
+          value={categoria}
+          onChange={e => setCategoria(e.target.value)}
+          className="border p-2 rounded w-full"
+        >
+          <option>Unghie</option>
+          <option>Capelli</option>
+          <option>Estetica</option>
+          <option>Altro</option>
+        </select>
+
+        <button
+          onClick={saveService}
+          className="bg-pink-600 text-white px-4 py-2 rounded"
+        >
+          {editingId ? 'Salva modifica' : '➕ Aggiungi servizio'}
+        </button>
+
+      </div>
+
+      {/* LISTA PER CATEGORIA */}
+      {Object.entries(grouped).map(([cat, items]) => (
+        <div key={cat} className="bg-white p-4 rounded-xl shadow">
+
+          <div className="font-bold text-pink-600 mb-2">
+            {cat}
+          </div>
+
+          {items.map(s => (
+            <div
+              key={s.id}
+              className="flex justify-between items-center border-b py-2 text-sm"
+            >
+
+              <div>
+                {s.nome} - €{s.prezzo}
+              </div>
+
+              <button
+                onClick={() => editService(s)}
+                className="text-blue-500 text-xs"
+              >
+                Modifica
+              </button>
+
             </div>
-          )}
+          ))}
 
         </div>
       ))}
