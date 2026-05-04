@@ -189,37 +189,38 @@ export default function CalendarPage() {
   }
 
   // ✅ WHATSAPP FIX
-  function sendWhatsAppReminder(app) {
-    let phone = app.clients?.telefono
-    const nome = app.clients?.nome
+function sendWhatsAppReminder(app) {
+  let phone = app.clients?.telefono
+  const nome = app.clients?.nome
 
-    if (!phone) {
-      alert('Numero cliente mancante')
-      return
-    }
-
-    phone = phone.replace(/\D/g, '')
-
-    if (!phone.startsWith('39')) {
-      phone = '39' + phone
-    }
-
-    const date = new Date(app.data).toLocaleDateString('it-IT')
-    const time = new Date(app.data).toLocaleTimeString([], {
-      hour: '2-digit',
-      minute: '2-digit'
-    })
-
-    const text = `Ciao ${nome} 💅
-Ti ricordiamo il tuo appuntamento:
-
-📅 ${date}
-⏰ ${time}
-
-Ti aspettiamo!`
-
-    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`)
+  if (!phone) {
+    alert('Numero cliente mancante')
+    return
   }
+
+  // 🔥 pulizia completa
+  phone = phone.replace(/\s+/g, '').replace('+', '')
+
+  // 🔥 se inizia con 0 → aggiungi 39
+  if (phone.startsWith('0')) {
+    phone = '39' + phone.substring(1)
+  }
+
+  // 🔥 se NON ha prefisso → aggiungi 39
+  if (!phone.startsWith('39')) {
+    phone = '39' + phone
+  }
+
+  // 🔥 sicurezza lunghezza
+  if (phone.length < 10) {
+    alert('Numero non valido')
+    return
+  }
+
+  const text = `Ciao ${nome} 💅 ti aspettiamo!`
+
+  window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`)
+}
 
   const filteredClients = clients.filter(c =>
     c.nome.toLowerCase().includes(clientSearch.toLowerCase())

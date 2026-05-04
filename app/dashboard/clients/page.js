@@ -6,6 +6,8 @@ import { supabase } from '@/lib/supabase'
 export default function ClientsPage() {
   const [clients, setClients] = useState([])
   const [search, setSearch] = useState('')
+  const [newName, setNewName] = useState('')
+const [newPhone, setNewPhone] = useState('')
 
   useEffect(() => {
     fetchClients()
