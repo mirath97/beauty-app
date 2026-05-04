@@ -1,7 +1,5 @@
 'use client'
 
-export const dynamic = 'force-dynamic'
-
 import { useEffect, useState } from 'react'
 import { createSupabaseClient } from '@/lib/supabaseClient'
 
@@ -13,18 +11,25 @@ export default function IncassiPage() {
     fetchData()
   }, [])
 
-async function fetchData() {
-  const supabase = createSupabaseClient()
-  if (!supabase) return
+  async function fetchData() {
+    const supabase = createSupabaseClient()
 
-  const { data } = await supabase
-    .from('appointments')
-    .select('*')
+    const { data, error } = await supabase
+      .from('appointments')
+      .select(`
+        data,
+        clients (nome),
+        appointment_services (services (prezzo))
+      `)
 
-  setAppointments(data || [])
-}
+    if (error) {
+      console.error(error)
+      return
+    }
 
-  // 📅 filtro giorno
+    setAppointments(data || [])
+  }
+
   function isSameDay(dateStr, selected) {
     if (!selected) return true
 
@@ -42,7 +47,6 @@ async function fetchData() {
     isSameDay(a.data, selectedDate)
   )
 
-  // 💰 totale
   function getTotal() {
     return filtered.reduce((tot, app) => {
       return tot + (app.appointment_services || []).reduce(
@@ -71,7 +75,7 @@ async function fetchData() {
         />
       </div>
 
-      {/* KPI */}
+      {/* TOTALE */}
       <div className="bg-green-100 p-4 rounded-xl">
         <div className="text-sm">Totale</div>
         <div className="text-2xl font-bold">
@@ -81,7 +85,6 @@ async function fetchData() {
 
       {/* LISTA */}
       <div className="bg-white p-4 rounded-xl shadow">
-
         <div className="font-bold mb-2">
           Appuntamenti
         </div>
@@ -93,8 +96,10 @@ async function fetchData() {
         )}
 
         {filtered.map((app, i) => (
-          <div key={i} className="flex justify-between border-b py-1 text-sm">
-
+          <div
+            key={i}
+            className="flex justify-between border-b py-1 text-sm"
+          >
             <span>{app.clients?.nome}</span>
 
             <span>
@@ -103,10 +108,8 @@ async function fetchData() {
                 0
               )}
             </span>
-
           </div>
         ))}
-
       </div>
 
     </div>

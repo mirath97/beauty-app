@@ -1,57 +1,41 @@
 'use client'
 
-export const dynamic = 'force-dynamic'
-
 import { useEffect, useState } from 'react'
 import { createSupabaseClient } from '@/lib/supabaseClient'
 
 export default function Dashboard() {
   const [appointments, setAppointments] = useState([])
-  const supabase = createSupabaseClient()
 
   useEffect(() => {
     fetchData()
   }, [])
 
-async function fetchData() {
-  const supabase = createSupabaseClient()
-  console.log('SUPABASE:', supabase)
+  async function fetchData() {
+    const supabase = createSupabaseClient()
 
-  if (!supabase) {
-    console.log('❌ supabase NULL')
-    return
+    const { data, error } = await supabase
+      .from('appointments')
+      .select(`
+        data,
+        clients (nome),
+        appointment_services (services (prezzo))
+      `)
+
+    console.log('DATA:', data)
+    console.log('ERROR:', error)
+
+    if (error) return
+
+    setAppointments(data || [])
   }
 
-  const { data, error } = await supabase
-    .from('appointments')
-    .select('*')
-
-  console.log('DATA:', data)
-  console.log('ERROR:', error)
-
-  setAppointments(data || [])
-}
-  function isToday(date) {
-    const today = new Date()
-    const d = new Date(date)
-
-    return (
-      d.getDate() === today.getDate() &&
-      d.getMonth() === today.getMonth() &&
-      d.getFullYear() === today.getFullYear()
+  // 🔥 ORA MOSTRA TUTTI I DATI (NON SOLO OGGI)
+  const total = appointments.reduce((tot, app) => {
+    return tot + (app.appointment_services || []).reduce(
+      (acc, s) => acc + Number(s.services?.prezzo || 0),
+      0
     )
-  }
-
-  const todayAppointments = appointments.filter(a => isToday(a.data))
-
-  function getTotal() {
-    return todayAppointments.reduce((tot, app) => {
-      return tot + (app.appointment_services || []).reduce(
-        (acc, s) => acc + Number(s.services?.prezzo || 0),
-        0
-      )
-    }, 0)
-  }
+  }, 0)
 
   return (
     <div className="p-4 space-y-4">
@@ -64,16 +48,16 @@ async function fetchData() {
       <div className="grid grid-cols-2 gap-3">
 
         <div className="bg-pink-100 p-4 rounded-xl">
-          <div className="text-sm">Appuntamenti oggi</div>
+          <div className="text-sm">Appuntamenti totali</div>
           <div className="text-xl font-bold">
-            {todayAppointments.length}
+            {appointments.length}
           </div>
         </div>
 
         <div className="bg-green-100 p-4 rounded-xl">
-          <div className="text-sm">Incasso oggi</div>
+          <div className="text-sm">Incasso totale</div>
           <div className="text-xl font-bold">
-            € {getTotal()}
+            € {total}
           </div>
         </div>
 
@@ -81,27 +65,32 @@ async function fetchData() {
 
       {/* LISTA */}
       <div className="bg-white p-4 rounded-xl shadow">
+
         <div className="font-bold mb-2">
-          📅 Oggi
+          Tutti gli appuntamenti
         </div>
 
-        {todayAppointments.length === 0 && (
+        {appointments.length === 0 && (
           <div className="text-gray-500 text-sm">
-            Nessun appuntamento oggi
+            Nessun dato trovato
           </div>
         )}
 
-        {todayAppointments.map((app, i) => (
+        {appointments.map((app, i) => (
           <div key={i} className="flex justify-between border-b py-1 text-sm">
-            <span>{app.clients?.nome}</span>
+
+            <span>{app.clients?.nome || 'Cliente'}</span>
+
             <span>
-              {new Date(app.data).toLocaleTimeString([], {
-                hour: '2-digit',
-                minute: '2-digit'
-              })}
+              € {(app.appointment_services || []).reduce(
+                (acc, s) => acc + Number(s.services?.prezzo || 0),
+                0
+              )}
             </span>
+
           </div>
         ))}
+
       </div>
 
     </div>
