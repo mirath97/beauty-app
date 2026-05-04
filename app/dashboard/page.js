@@ -13,26 +13,54 @@ export default function Dashboard() {
   async function fetchData() {
     const supabase = createSupabaseClient()
 
-    const { data, error } = await supabase
+    // 🔥 prendi tutte le tabelle
+    const { data: apps } = await supabase
       .from('appointments')
-      .select(`
-        data,
-        clients (nome),
-        appointment_services (services (prezzo))
-      `)
+      .select('*')
 
-    console.log('DATA:', data)
-    console.log('ERROR:', error)
+    const { data: clients } = await supabase
+      .from('clients')
+      .select('*')
 
-    if (error) return
+    const { data: services } = await supabase
+      .from('services')
+      .select('*')
 
-    setAppointments(data || [])
+    const { data: appServices } = await supabase
+      .from('appointment_services')
+      .select('*')
+
+    console.log('APPS:', apps)
+    console.log('CLIENTS:', clients)
+    console.log('SERVICES:', services)
+    console.log('REL:', appServices)
+
+    if (!apps) return
+
+    // 🔥 JOIN MANUALE
+    const enriched = apps.map(app => {
+      const client = clients?.find(c => c.id === app.client_id)
+
+      const rel = appServices?.filter(r => r.appointment_id === app.id)
+
+      const serv = rel?.map(r =>
+        services?.find(s => s.id === r.service_id)
+      )
+
+      return {
+        ...app,
+        client,
+        services: serv
+      }
+    })
+
+    setAppointments(enriched || [])
   }
 
-  // 🔥 ORA MOSTRA TUTTI I DATI (NON SOLO OGGI)
+  // 💰 totale incasso
   const total = appointments.reduce((tot, app) => {
-    return tot + (app.appointment_services || []).reduce(
-      (acc, s) => acc + Number(s.services?.prezzo || 0),
+    return tot + (app.services || []).reduce(
+      (acc, s) => acc + Number(s?.prezzo || 0),
       0
     )
   }, 0)
@@ -77,13 +105,18 @@ export default function Dashboard() {
         )}
 
         {appointments.map((app, i) => (
-          <div key={i} className="flex justify-between border-b py-1 text-sm">
-
-            <span>{app.clients?.nome || 'Cliente'}</span>
+          <div
+            key={i}
+            className="flex justify-between border-b py-2 text-sm"
+          >
 
             <span>
-              € {(app.appointment_services || []).reduce(
-                (acc, s) => acc + Number(s.services?.prezzo || 0),
+              {app.client?.nome || 'Cliente'}
+            </span>
+
+            <span>
+              € {(app.services || []).reduce(
+                (acc, s) => acc + Number(s?.prezzo || 0),
                 0
               )}
             </span>
