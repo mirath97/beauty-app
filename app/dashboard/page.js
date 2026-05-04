@@ -1,16 +1,17 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { createSupabaseClient } from '@/lib/supabaseClient'
 
 export default function Dashboard() {
   const [appointments, setAppointments] = useState([])
+  const supabase = createSupabaseClient()
 
   useEffect(() => {
-    fetchAll()
+    fetchData()
   }, [])
 
-  async function fetchAll() {
+  async function fetchData() {
     const { data } = await supabase
       .from('appointments')
       .select(`
