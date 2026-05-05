@@ -239,8 +239,8 @@ export default function CalendarPage() {
             <div className="text-xs">⏱ {getDuration(app)} min</div>
 
             <div className="text-xs">
-              {(app.services || []).map(s => s?.nome).join(', ')
-            </div>
+  {(app.services || []).map(s => s?.nome).join(', ')}
+</div>
 
             <div className="flex gap-2 mt-2">
               <button
