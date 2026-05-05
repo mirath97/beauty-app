@@ -32,7 +32,7 @@ export default function IncassiPage() {
     setAppointments(enriched)
   }
 
-  // 👉 cambio mese
+  // 🔁 cambio mese
   function changeMonth(dir) {
     let newMonth = month + dir
     let newYear = year
@@ -51,141 +51,141 @@ export default function IncassiPage() {
     setYear(newYear)
   }
 
-  // 👉 filtro mese
+  // 📅 filtro mese attuale
   const filtered = appointments.filter(app => {
     const d = new Date(app.data)
     return d.getMonth() === month && d.getFullYear() === year
   })
 
+  // 📅 mese precedente
+  let prevMonth = month - 1
+  let prevYear = year
+
+  if (prevMonth < 0) {
+    prevMonth = 11
+    prevYear--
+  }
+
+  const filteredPrev = appointments.filter(app => {
+    const d = new Date(app.data)
+    return d.getMonth() === prevMonth && d.getFullYear() === prevYear
+  })
+
   // 💰 totale mese
-  const total = filtered.reduce((tot, app) => {
+  const totalMonth = filtered.reduce((tot, app) => {
     return tot + (app.services || []).reduce(
       (acc, s) => acc + Number(s?.prezzo || 0),
       0
     )
   }, 0)
 
-  // 📅 giornaliero
-  const dailyTotals = {}
+  // 💰 totale mese precedente
+  const totalPrevMonth = filteredPrev.reduce((tot, app) => {
+    return tot + (app.services || []).reduce(
+      (acc, s) => acc + Number(s?.prezzo || 0),
+      0
+    )
+  }, 0)
+
+  // 📊 differenza
+  const diff = totalMonth - totalPrevMonth
+
+  const percent =
+    totalPrevMonth > 0
+      ? Math.round((diff / totalPrevMonth) * 100)
+      : 0
+
+  // 📊 giornaliero
+  const daily = {}
+
   filtered.forEach(app => {
     const day = new Date(app.data).toLocaleDateString()
 
-    const val = (app.services || []).reduce(
+    const value = (app.services || []).reduce(
       (acc, s) => acc + Number(s?.prezzo || 0),
       0
     )
 
-    dailyTotals[day] = (dailyTotals[day] || 0) + val
-  })
-
-  // 🔥 per servizio
-  const serviceTotals = {}
-  filtered.forEach(app => {
-    app.services?.forEach(s => {
-      const nome = s?.nome
-      if (!nome) return
-
-      serviceTotals[nome] =
-        (serviceTotals[nome] || 0) + Number(s?.prezzo || 0)
-    })
-  })
-
-  // 📊 numero appuntamenti
-  const totalAppointments = filtered.length
-
-  // 📊 media giornaliera
-  const daysCount = Object.keys(dailyTotals).length || 1
-  const avgDaily = Math.round(total / daysCount)
-
-  // 🏆 giorno migliore
-  let bestDay = '-'
-  let bestValue = 0
-
-  Object.entries(dailyTotals).forEach(([day, val]) => {
-    if (val > bestValue) {
-      bestValue = val
-      bestDay = day
+    if (!daily[day]) {
+      daily[day] = { total: 0, count: 0 }
     }
+
+    daily[day].total += value
+    daily[day].count += 1
   })
+
+  const sortedDays = Object.entries(daily).sort(
+    (a, b) => new Date(a[0]) - new Date(b[0])
+  )
 
   return (
     <div className="p-4 space-y-4">
 
       <h1 className="text-2xl font-bold text-pink-700">
-        Incassi PRO 💰
+        Incassi 💰
       </h1>
 
       {/* NAV MESE */}
-      <div className="flex justify-between items-center">
-
+      <div className="flex justify-between items-center bg-white p-3 rounded-xl shadow">
         <button onClick={() => changeMonth(-1)}>⬅</button>
 
-        <div className="font-bold">
+        <div className="font-bold text-pink-600">
           {month + 1}/{year}
         </div>
 
         <button onClick={() => changeMonth(1)}>➡</button>
+      </div>
+
+      {/* TOTALE */}
+      <div className="bg-gradient-to-r from-green-400 to-green-300 text-white p-5 rounded-2xl shadow text-center">
+
+        <div className="text-sm">Totale mese</div>
+
+        <div className="text-3xl font-bold mt-1">
+          € {totalMonth}
+        </div>
+
+        {/* 👉 NUOVO: confronto */}
+        <div className="text-sm mt-2">
+
+          {diff >= 0 ? '📈' : '📉'} {diff >= 0 ? '+' : ''}{diff} € 
+          ({percent}% rispetto al mese precedente)
+
+        </div>
 
       </div>
 
-      {/* KPI */}
-      <div className="grid grid-cols-2 gap-3">
+      {/* LISTA GIORNI */}
+      <div className="space-y-2">
 
-        <div className="bg-green-100 p-4 rounded-xl">
-          <div className="text-sm">Totale mese</div>
-          <div className="text-xl font-bold">€ {total}</div>
-        </div>
-
-        <div className="bg-pink-100 p-4 rounded-xl">
-          <div className="text-sm">Appuntamenti</div>
-          <div className="text-xl font-bold">{totalAppointments}</div>
-        </div>
-
-        <div className="bg-yellow-100 p-4 rounded-xl">
-          <div className="text-sm">Media giornaliera</div>
-          <div className="text-xl font-bold">€ {avgDaily}</div>
-        </div>
-
-        <div className="bg-purple-100 p-4 rounded-xl">
-          <div className="text-sm">Giorno migliore</div>
-          <div className="text-sm font-bold">
-            {bestDay} (€ {bestValue})
+        {sortedDays.length === 0 && (
+          <div className="text-gray-500 text-sm">
+            Nessun incasso in questo mese
           </div>
-        </div>
+        )}
 
-      </div>
+        {sortedDays.map(([day, data]) => (
+          <div
+            key={day}
+            className="bg-white p-4 rounded-xl shadow flex justify-between items-center"
+          >
 
-      {/* 📅 GIORNI */}
-      <div className="bg-white p-4 rounded-xl shadow">
+            <div>
+              <div className="font-bold text-sm">
+                {day}
+              </div>
 
-        <div className="font-bold text-pink-600 mb-2">
-          Incassi giornalieri
-        </div>
+              <div className="text-xs text-gray-500">
+                {data.count} appuntamenti
+              </div>
+            </div>
 
-        {Object.entries(dailyTotals).map(([day, val]) => (
-          <div key={day} className="flex justify-between text-sm border-b py-1">
-            <span>{day}</span>
-            <span>€ {val}</span>
+            <div className="font-bold text-green-600">
+              € {data.total}
+            </div>
+
           </div>
         ))}
-
-      </div>
-
-      {/* 🔥 SERVIZI */}
-      <div className="bg-white p-4 rounded-xl shadow">
-
-        <div className="font-bold text-pink-600 mb-2">
-          Servizi più redditizi
-        </div>
-
-        {Object.entries(serviceTotals)
-          .sort((a, b) => b[1] - a[1])
-          .map(([name, val]) => (
-            <div key={name} className="flex justify-between text-sm border-b py-1">
-              <span>{name}</span>
-              <span>€ {val}</span>
-            </div>
-          ))}
 
       </div>
 
