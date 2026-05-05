@@ -18,6 +18,9 @@ export default function CalendarPage() {
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [viewMode, setViewMode] = useState('day')
 
+  // 👉 NUOVO
+  const [time, setTime] = useState('')
+
   useEffect(() => {
     fetchAll()
   }, [])
@@ -102,12 +105,19 @@ export default function CalendarPage() {
 
     let appId = editingId
 
+    // 👉 costruzione data con ORA
+    const fullDate = new Date(selectedDate)
+    const [hours, minutes] = time.split(':')
+
+    fullDate.setHours(hours || 0)
+    fullDate.setMinutes(minutes || 0)
+
     if (!editingId) {
       const { data } = await supabase
         .from('appointments')
         .insert({
           client_id: selectedClient,
-          data: date
+          data: fullDate
         })
         .select()
         .single()
@@ -116,7 +126,7 @@ export default function CalendarPage() {
     } else {
       await supabase
         .from('appointments')
-        .update({ data: date })
+        .update({ data: fullDate })
         .eq('id', editingId)
 
       await supabase
@@ -136,7 +146,7 @@ export default function CalendarPage() {
     setEditingId(null)
     setSelectedClient('')
     setSelectedServices([])
-    setDate('')
+    setTime('')
 
     fetchAll()
   }
@@ -164,9 +174,8 @@ export default function CalendarPage() {
         </button>
       </div>
 
-      {/* NAV GIORNO */}
+      {/* NAV */}
       <div className="flex justify-between items-center bg-white p-3 rounded-xl shadow">
-
         <button onClick={() =>
           setSelectedDate(new Date(selectedDate.setDate(selectedDate.getDate() - 1)))
         }>⬅</button>
@@ -178,7 +187,6 @@ export default function CalendarPage() {
         <button onClick={() =>
           setSelectedDate(new Date(selectedDate.setDate(selectedDate.getDate() + 1)))
         }>➡</button>
-
       </div>
 
       {/* NUOVO */}
@@ -192,10 +200,8 @@ export default function CalendarPage() {
       {/* SETTIMANA */}
       {viewMode === 'week' && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-
           {getWeekDays(selectedDate).map(day => (
             <div key={day} className="bg-white p-3 rounded-xl shadow">
-
               <div className="text-xs font-bold text-pink-600 mb-2">
                 {day.toLocaleDateString()}
               </div>
@@ -209,10 +215,8 @@ export default function CalendarPage() {
                     {a.client?.nome}
                   </div>
                 ))}
-
             </div>
           ))}
-
         </div>
       )}
 
@@ -223,12 +227,8 @@ export default function CalendarPage() {
             key={app.id}
             className="bg-gradient-to-r from-pink-500 to-pink-400 text-white p-4 rounded-xl shadow space-y-1"
           >
-
             <div className="flex justify-between">
-              <div className="font-bold text-lg">
-                {app.client?.nome}
-              </div>
-
+              <div className="font-bold text-lg">{app.client?.nome}</div>
               <div>€ {getTotal(app)}</div>
             </div>
 
@@ -236,16 +236,13 @@ export default function CalendarPage() {
               🕒 {new Date(app.data).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </div>
 
-            <div className="text-xs">
-              ⏱ {getDuration(app)} min
-            </div>
+            <div className="text-xs">⏱ {getDuration(app)} min</div>
 
             <div className="text-xs">
-              {(app.services || []).map(s => s?.nome).join(', ')}
+              {(app.services || []).map(s => s?.nome).join(', ')
             </div>
 
             <div className="flex gap-2 mt-2">
-
               <button
                 onClick={() => sendWhatsApp(app)}
                 className="bg-green-500 px-2 py-1 rounded text-xs"
@@ -258,28 +255,37 @@ export default function CalendarPage() {
                   setEditingId(app.id)
                   setSelectedClient(app.client?.id)
                   setSelectedServices(app.services.map(s => s.id))
-                  setDate(app.data)
+                  setTime(new Date(app.data).toTimeString().slice(0,5))
                   setShowModal(true)
                 }}
                 className="bg-blue-500 px-2 py-1 rounded text-xs"
               >
                 Modifica
               </button>
-
             </div>
-
           </div>
         ))}
 
-      {/* MODAL */}
+      {/* MODAL MIGLIORATO */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
 
-          <div className="bg-white p-5 rounded-xl w-80 space-y-3">
+          <div className="bg-white w-[320px] rounded-2xl shadow-xl p-5 space-y-4">
 
-            <h2 className="font-bold text-pink-600">
-              {editingId ? 'Modifica' : 'Nuovo'} appuntamento
+            <h2 className="text-lg font-bold text-pink-600">
+              {editingId ? 'Modifica appuntamento' : 'Nuovo appuntamento'}
             </h2>
+
+            <div className="bg-pink-50 p-2 rounded text-center text-sm">
+              📅 {selectedDate.toLocaleDateString()}
+            </div>
+
+            <input
+              type="time"
+              value={time}
+              onChange={e => setTime(e.target.value)}
+              className="w-full border p-2 rounded"
+            />
 
             <select
               value={selectedClient}
@@ -288,57 +294,46 @@ export default function CalendarPage() {
             >
               <option value="">Cliente</option>
               {clients.map(c => (
-                <option key={c.id} value={c.id}>
-                  {c.nome}
-                </option>
+                <option key={c.id} value={c.id}>{c.nome}</option>
               ))}
             </select>
 
-            <div className="max-h-32 overflow-y-auto">
+            <div className="max-h-32 overflow-y-auto border rounded p-2">
               {services.map(s => (
-                <label key={s.id} className="flex gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={selectedServices.includes(s.id)}
-                    onChange={e => {
-                      if (e.target.checked) {
-                        setSelectedServices([...selectedServices, s.id])
-                      } else {
-                        setSelectedServices(
-                          selectedServices.filter(id => id !== s.id)
-                        )
-                      }
-                    }}
-                  />
-                  {s.nome} (€{s.prezzo})
+                <label key={s.id} className="flex justify-between text-sm">
+                  <div className="flex gap-2">
+                    <input
+                      type="checkbox"
+                      checked={selectedServices.includes(s.id)}
+                      onChange={e => {
+                        if (e.target.checked) {
+                          setSelectedServices([...selectedServices, s.id])
+                        } else {
+                          setSelectedServices(
+                            selectedServices.filter(id => id !== s.id)
+                          )
+                        }
+                      }}
+                    />
+                    {s.nome}
+                  </div>
+                  <span>€{s.prezzo}</span>
                 </label>
               ))}
             </div>
 
-            <input
-              type="datetime-local"
-              value={date}
-              onChange={e => setDate(e.target.value)}
-              className="w-full border p-2 rounded"
-            />
-
             <div className="flex justify-between">
-
-              <button onClick={() => setShowModal(false)}>
-                Annulla
-              </button>
+              <button onClick={() => setShowModal(false)}>Annulla</button>
 
               <button
                 onClick={saveAppointment}
-                className="bg-pink-600 text-white px-3 py-1 rounded"
+                className="bg-pink-600 text-white px-4 py-2 rounded-xl"
               >
                 Salva
               </button>
-
             </div>
 
           </div>
-
         </div>
       )}
 
