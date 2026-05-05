@@ -9,11 +9,14 @@ export default function CalendarPage() {
   const [services, setServices] = useState([])
 
   const [showModal, setShowModal] = useState(false)
+  const [editingId, setEditingId] = useState(null)
 
   const [selectedClient, setSelectedClient] = useState('')
   const [selectedServices, setSelectedServices] = useState([])
   const [date, setDate] = useState('')
-  const [editingId, setEditingId] = useState(null)
+
+  const [selectedDate, setSelectedDate] = useState(new Date())
+  const [viewMode, setViewMode] = useState('day')
 
   useEffect(() => {
     fetchAll()
@@ -51,7 +54,31 @@ export default function CalendarPage() {
     setAppointments(enriched || [])
   }
 
-  // 📲 WhatsApp
+  function getWeekDays(date) {
+    const start = new Date(date)
+    start.setDate(date.getDate() - date.getDay())
+
+    return Array.from({ length: 7 }).map((_, i) => {
+      const d = new Date(start)
+      d.setDate(start.getDate() + i)
+      return d
+    })
+  }
+
+  function getDuration(app) {
+    return (app.services || []).reduce(
+      (tot, s) => tot + Number(s?.durata || 30),
+      0
+    )
+  }
+
+  function getTotal(app) {
+    return (app.services || []).reduce(
+      (acc, s) => acc + Number(s?.prezzo || 0),
+      0
+    )
+  }
+
   function sendWhatsApp(app) {
     let phone = app.client?.telefono || ''
 
@@ -61,36 +88,15 @@ export default function CalendarPage() {
       phone = '39' + phone.substring(1)
     }
 
-    const text = `Ciao ${app.client?.nome} 💅 ti ricordiamo il tuo appuntamento!`
-
+    const text = `Ciao ${app.client?.nome} 💅 ti aspettiamo!`
     window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`)
   }
 
-  // ⏱ durata reale
-  function getDuration(app) {
-    return (app.services || []).reduce(
-      (tot, s) => tot + Number(s?.durata || 30),
-      0
-    )
-  }
+  const filteredAppointments = appointments.filter(app => {
+    const d = new Date(app.data)
+    return d.toDateString() === selectedDate.toDateString()
+  })
 
-  // 💰 totale
-  function getTotal(app) {
-    return (app.services || []).reduce(
-      (acc, s) => acc + Number(s?.prezzo || 0),
-      0
-    )
-  }
-
-  // 🎨 colori categoria
-  function getColor(category) {
-    if (category === 'Unghie') return 'from-pink-500 to-pink-400'
-    if (category === 'Capelli') return 'from-purple-500 to-purple-400'
-    if (category === 'Estetica') return 'from-orange-400 to-orange-300'
-    return 'from-gray-400 to-gray-300'
-  }
-
-  // ➕ CREA / MODIFICA
   async function saveAppointment() {
     const supabase = getSupabase()
 
@@ -126,87 +132,144 @@ export default function CalendarPage() {
       })
     }
 
-    resetForm()
-    fetchAll()
-  }
-
-  function resetForm() {
     setShowModal(false)
+    setEditingId(null)
     setSelectedClient('')
     setSelectedServices([])
     setDate('')
-    setEditingId(null)
+
+    fetchAll()
   }
 
   return (
     <div className="p-4 space-y-4">
 
       <h1 className="text-2xl font-bold text-pink-700">
-        Calendario PRO 💅📅
+        Calendario 💅
       </h1>
 
+      {/* TOGGLE */}
+      <div className="flex gap-2">
+        <button
+          onClick={() => setViewMode('day')}
+          className={`px-3 py-1 rounded ${viewMode === 'day' ? 'bg-pink-600 text-white' : 'bg-gray-200'}`}
+        >
+          Giorno
+        </button>
+        <button
+          onClick={() => setViewMode('week')}
+          className={`px-3 py-1 rounded ${viewMode === 'week' ? 'bg-pink-600 text-white' : 'bg-gray-200'}`}
+        >
+          Settimana
+        </button>
+      </div>
+
+      {/* NAV GIORNO */}
+      <div className="flex justify-between items-center bg-white p-3 rounded-xl shadow">
+
+        <button onClick={() =>
+          setSelectedDate(new Date(selectedDate.setDate(selectedDate.getDate() - 1)))
+        }>⬅</button>
+
+        <div className="font-bold text-pink-600">
+          {selectedDate.toLocaleDateString()}
+        </div>
+
+        <button onClick={() =>
+          setSelectedDate(new Date(selectedDate.setDate(selectedDate.getDate() + 1)))
+        }>➡</button>
+
+      </div>
+
+      {/* NUOVO */}
       <button
         onClick={() => setShowModal(true)}
-        className="bg-pink-600 text-white px-4 py-2 rounded-xl"
+        className="bg-pink-600 text-white px-4 py-2 rounded-xl shadow"
       >
         ➕ Nuovo appuntamento
       </button>
 
-      {/* LISTA */}
-      {appointments.map(app => (
-        <div
-          key={app.id}
-          className={`bg-gradient-to-r ${getColor(app.services?.[0]?.categoria)} text-white p-4 rounded-xl shadow space-y-2`}
-        >
+      {/* SETTIMANA */}
+      {viewMode === 'week' && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
 
-          <div className="flex justify-between">
-            <div className="font-bold text-lg">
-              {app.client?.nome}
+          {getWeekDays(selectedDate).map(day => (
+            <div key={day} className="bg-white p-3 rounded-xl shadow">
+
+              <div className="text-xs font-bold text-pink-600 mb-2">
+                {day.toLocaleDateString()}
+              </div>
+
+              {appointments
+                .filter(a => new Date(a.data).toDateString() === day.toDateString())
+                .map(a => (
+                  <div key={a.id} className="text-xs border-b py-1">
+                    {new Date(a.data).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    <br />
+                    {a.client?.nome}
+                  </div>
+                ))}
+
+            </div>
+          ))}
+
+        </div>
+      )}
+
+      {/* GIORNO */}
+      {viewMode === 'day' &&
+        filteredAppointments.map(app => (
+          <div
+            key={app.id}
+            className="bg-gradient-to-r from-pink-500 to-pink-400 text-white p-4 rounded-xl shadow space-y-1"
+          >
+
+            <div className="flex justify-between">
+              <div className="font-bold text-lg">
+                {app.client?.nome}
+              </div>
+
+              <div>€ {getTotal(app)}</div>
             </div>
 
             <div className="text-sm">
-              € {getTotal(app)}
+              🕒 {new Date(app.data).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </div>
-          </div>
 
-          <div className="text-sm">
-            🕒 {new Date(app.data).toLocaleString()}
-          </div>
+            <div className="text-xs">
+              ⏱ {getDuration(app)} min
+            </div>
 
-          <div className="text-xs">
-            ⏱ {getDuration(app)} min
-          </div>
+            <div className="text-xs">
+              {(app.services || []).map(s => s?.nome).join(', ')}
+            </div>
 
-          <div className="text-xs">
-            {(app.services || []).map(s => s?.nome).join(', ')}
-          </div>
+            <div className="flex gap-2 mt-2">
 
-          <div className="flex gap-2 mt-2">
+              <button
+                onClick={() => sendWhatsApp(app)}
+                className="bg-green-500 px-2 py-1 rounded text-xs"
+              >
+                WhatsApp
+              </button>
 
-            <button
-              onClick={() => sendWhatsApp(app)}
-              className="bg-green-500 px-2 py-1 rounded text-xs"
-            >
-              WhatsApp
-            </button>
+              <button
+                onClick={() => {
+                  setEditingId(app.id)
+                  setSelectedClient(app.client?.id)
+                  setSelectedServices(app.services.map(s => s.id))
+                  setDate(app.data)
+                  setShowModal(true)
+                }}
+                className="bg-blue-500 px-2 py-1 rounded text-xs"
+              >
+                Modifica
+              </button>
 
-            <button
-              onClick={() => {
-                setEditingId(app.id)
-                setSelectedClient(app.client?.id)
-                setSelectedServices(app.services.map(s => s.id))
-                setDate(app.data)
-                setShowModal(true)
-              }}
-              className="bg-blue-500 px-2 py-1 rounded text-xs"
-            >
-              Modifica
-            </button>
+            </div>
 
           </div>
-
-        </div>
-      ))}
+        ))}
 
       {/* MODAL */}
       {showModal && (
@@ -218,7 +281,6 @@ export default function CalendarPage() {
               {editingId ? 'Modifica' : 'Nuovo'} appuntamento
             </h2>
 
-            {/* CLIENTE */}
             <select
               value={selectedClient}
               onChange={e => setSelectedClient(e.target.value)}
@@ -232,58 +294,27 @@ export default function CalendarPage() {
               ))}
             </select>
 
-            {/* SERVIZI PER CATEGORIA */}
-            <div className="max-h-40 overflow-y-auto space-y-2">
-
-              {Object.entries(
-                services.reduce((acc, s) => {
-                  const cat = s.categoria || 'Altro'
-                  if (!acc[cat]) acc[cat] = []
-                  acc[cat].push(s)
-                  return acc
-                }, {})
-              ).map(([cat, items]) => (
-
-                <div key={cat}>
-
-                  <div className="font-bold text-pink-600 text-sm">
-                    {cat}
-                  </div>
-
-                  {items.map(s => (
-                    <label key={s.id} className="flex justify-between text-sm">
-
-                      <div className="flex gap-2">
-                        <input
-                          type="checkbox"
-                          checked={selectedServices.includes(s.id)}
-                          onChange={e => {
-                            if (e.target.checked) {
-                              setSelectedServices([...selectedServices, s.id])
-                            } else {
-                              setSelectedServices(
-                                selectedServices.filter(id => id !== s.id)
-                              )
-                            }
-                          }}
-                        />
-                        {s.nome}
-                      </div>
-
-                      <div className="text-xs text-gray-500">
-                        €{s.prezzo} • {s.durata || 30} min
-                      </div>
-
-                    </label>
-                  ))}
-
-                </div>
-
+            <div className="max-h-32 overflow-y-auto">
+              {services.map(s => (
+                <label key={s.id} className="flex gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={selectedServices.includes(s.id)}
+                    onChange={e => {
+                      if (e.target.checked) {
+                        setSelectedServices([...selectedServices, s.id])
+                      } else {
+                        setSelectedServices(
+                          selectedServices.filter(id => id !== s.id)
+                        )
+                      }
+                    }}
+                  />
+                  {s.nome} (€{s.prezzo})
+                </label>
               ))}
-
             </div>
 
-            {/* DATA */}
             <input
               type="datetime-local"
               value={date}
@@ -293,7 +324,7 @@ export default function CalendarPage() {
 
             <div className="flex justify-between">
 
-              <button onClick={resetForm}>
+              <button onClick={() => setShowModal(false)}>
                 Annulla
               </button>
 
