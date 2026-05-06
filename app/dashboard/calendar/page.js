@@ -13,17 +13,28 @@ export default function CalendarPage() {
 
   const [selectedClient, setSelectedClient] = useState('')
   const [selectedServices, setSelectedServices] = useState([])
-  const [date, setDate] = useState('')
 
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [viewMode, setViewMode] = useState('day')
 
-  // 👉 NUOVO
   const [time, setTime] = useState('')
+
+  // 🔥 NUOVO
+  const [clientSearch, setClientSearch] = useState('')
+  const [filteredClients, setFilteredClients] = useState([])
 
   useEffect(() => {
     fetchAll()
   }, [])
+
+  // 🔥 NUOVO
+  useEffect(() => {
+    const results = clients.filter(c =>
+      c.nome?.toLowerCase().includes(clientSearch.toLowerCase())
+    )
+
+    setFilteredClients(results)
+  }, [clientSearch, clients])
 
   async function fetchAll() {
     const supabase = getSupabase()
@@ -92,7 +103,10 @@ export default function CalendarPage() {
     }
 
     const text = `Ciao ${app.client?.nome} 💅 ti aspettiamo!`
-    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`)
+
+    window.open(
+      `https://wa.me/${phone}?text=${encodeURIComponent(text)}`
+    )
   }
 
   const filteredAppointments = appointments.filter(app => {
@@ -101,12 +115,17 @@ export default function CalendarPage() {
   })
 
   async function saveAppointment() {
+    if (!time || !selectedClient) {
+      alert('Inserisci cliente e orario')
+      return
+    }
+
     const supabase = getSupabase()
 
     let appId = editingId
 
-    // 👉 costruzione data con ORA
     const fullDate = new Date(selectedDate)
+
     const [hours, minutes] = time.split(':')
 
     fullDate.setHours(hours || 0)
@@ -126,7 +145,9 @@ export default function CalendarPage() {
     } else {
       await supabase
         .from('appointments')
-        .update({ data: fullDate })
+        .update({
+          data: fullDate
+        })
         .eq('id', editingId)
 
       await supabase
@@ -136,16 +157,21 @@ export default function CalendarPage() {
     }
 
     for (let s of selectedServices) {
-      await supabase.from('appointment_services').insert({
-        appointment_id: appId,
-        service_id: s
-      })
+      await supabase
+        .from('appointment_services')
+        .insert({
+          appointment_id: appId,
+          service_id: s
+        })
     }
 
     setShowModal(false)
     setEditingId(null)
+
     setSelectedClient('')
     setSelectedServices([])
+
+    setClientSearch('')
     setTime('')
 
     fetchAll()
@@ -160,33 +186,66 @@ export default function CalendarPage() {
 
       {/* TOGGLE */}
       <div className="flex gap-2">
+
         <button
           onClick={() => setViewMode('day')}
-          className={`px-3 py-1 rounded ${viewMode === 'day' ? 'bg-pink-600 text-white' : 'bg-gray-200'}`}
+          className={`px-3 py-1 rounded ${
+            viewMode === 'day'
+              ? 'bg-pink-600 text-white'
+              : 'bg-gray-200'
+          }`}
         >
           Giorno
         </button>
+
         <button
           onClick={() => setViewMode('week')}
-          className={`px-3 py-1 rounded ${viewMode === 'week' ? 'bg-pink-600 text-white' : 'bg-gray-200'}`}
+          className={`px-3 py-1 rounded ${
+            viewMode === 'week'
+              ? 'bg-pink-600 text-white'
+              : 'bg-gray-200'
+          }`}
         >
           Settimana
         </button>
+
       </div>
 
       {/* NAV */}
       <div className="flex justify-between items-center bg-white p-3 rounded-xl shadow">
-        <button onClick={() =>
-          setSelectedDate(new Date(selectedDate.setDate(selectedDate.getDate() - 1)))
-        }>⬅</button>
+
+        <button
+          onClick={() =>
+            setSelectedDate(
+              new Date(
+                selectedDate.setDate(
+                  selectedDate.getDate() - 1
+                )
+              )
+            )
+          }
+        >
+          ⬅
+        </button>
 
         <div className="font-bold text-pink-600">
           {selectedDate.toLocaleDateString()}
         </div>
 
-        <button onClick={() =>
-          setSelectedDate(new Date(selectedDate.setDate(selectedDate.getDate() + 1)))
-        }>➡</button>
+        <button
+          onClick={() =>
+            setSelectedDate(
+              new Date(
+                selectedDate.setDate(
+                  selectedDate.getDate() + 1
+                )
+              )
+            )
+          }
+        >
+          ➡
+        </button>
+
       </div>
 
       {/* NUOVO */}
@@ -200,49 +259,86 @@ export default function CalendarPage() {
       {/* SETTIMANA */}
       {viewMode === 'week' && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+
           {getWeekDays(selectedDate).map(day => (
-            <div key={day} className="bg-white p-3 rounded-xl shadow">
+
+            <div
+              key={day}
+              className="bg-white p-3 rounded-xl shadow"
+            >
+
               <div className="text-xs font-bold text-pink-600 mb-2">
                 {day.toLocaleDateString()}
               </div>
 
               {appointments
-                .filter(a => new Date(a.data).toDateString() === day.toDateString())
+                .filter(a =>
+                  new Date(a.data).toDateString() ===
+                  day.toDateString()
+                )
                 .map(a => (
-                  <div key={a.id} className="text-xs border-b py-1">
-                    {new Date(a.data).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  <div
+                    key={a.id}
+                    className="text-xs border-b py-1"
+                  >
+                    {new Date(a.data).toLocaleTimeString([], {
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+
                     <br />
+
                     {a.client?.nome}
                   </div>
                 ))}
+
             </div>
+
           ))}
+
         </div>
       )}
 
       {/* GIORNO */}
       {viewMode === 'day' &&
         filteredAppointments.map(app => (
+
           <div
             key={app.id}
             className="bg-gradient-to-r from-pink-500 to-pink-400 text-white p-4 rounded-xl shadow space-y-1"
           >
+
             <div className="flex justify-between">
-              <div className="font-bold text-lg">{app.client?.nome}</div>
-              <div>€ {getTotal(app)}</div>
+
+              <div className="font-bold text-lg">
+                {app.client?.nome}
+              </div>
+
+              <div>
+                € {getTotal(app)}
+              </div>
+
             </div>
 
             <div className="text-sm">
-              🕒 {new Date(app.data).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              🕒 {new Date(app.data).toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit'
+              })}
             </div>
 
-            <div className="text-xs">⏱ {getDuration(app)} min</div>
+            <div className="text-xs">
+              ⏱ {getDuration(app)} min
+            </div>
 
             <div className="text-xs">
-  {(app.services || []).map(s => s?.nome).join(', ')}
-</div>
+              {(app.services || [])
+                .map(s => s?.nome)
+                .join(', ')}
+            </div>
 
             <div className="flex gap-2 mt-2">
+
               <button
                 onClick={() => sendWhatsApp(app)}
                 className="bg-green-500 px-2 py-1 rounded text-xs"
@@ -253,33 +349,54 @@ export default function CalendarPage() {
               <button
                 onClick={() => {
                   setEditingId(app.id)
+
                   setSelectedClient(app.client?.id)
-                  setSelectedServices(app.services.map(s => s.id))
-                  setTime(new Date(app.data).toTimeString().slice(0,5))
+
+                  setClientSearch(
+                    app.client?.nome || ''
+                  )
+
+                  setSelectedServices(
+                    app.services.map(s => s.id)
+                  )
+
+                  setTime(
+                    new Date(app.data)
+                      .toTimeString()
+                      .slice(0, 5)
+                  )
+
                   setShowModal(true)
                 }}
                 className="bg-blue-500 px-2 py-1 rounded text-xs"
               >
                 Modifica
               </button>
+
             </div>
+
           </div>
+
         ))}
 
-      {/* MODAL MIGLIORATO */}
+      {/* MODAL */}
       {showModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
 
-          <div className="bg-white w-[320px] rounded-2xl shadow-xl p-5 space-y-4">
+          <div className="bg-white w-[340px] rounded-2xl shadow-xl p-5 space-y-4">
 
             <h2 className="text-lg font-bold text-pink-600">
-              {editingId ? 'Modifica appuntamento' : 'Nuovo appuntamento'}
+              {editingId
+                ? 'Modifica appuntamento'
+                : 'Nuovo appuntamento'}
             </h2>
 
+            {/* DATA */}
             <div className="bg-pink-50 p-2 rounded text-center text-sm">
               📅 {selectedDate.toLocaleDateString()}
             </div>
 
+            {/* ORA */}
             <input
               type="time"
               value={time}
@@ -287,43 +404,94 @@ export default function CalendarPage() {
               className="w-full border p-2 rounded"
             />
 
-            <select
-              value={selectedClient}
-              onChange={e => setSelectedClient(e.target.value)}
-              className="w-full border p-2 rounded"
-            >
-              <option value="">Cliente</option>
-              {clients.map(c => (
-                <option key={c.id} value={c.id}>{c.nome}</option>
-              ))}
-            </select>
+            {/* CLIENTE SEARCH */}
+            <div className="space-y-2">
 
+              <input
+                placeholder="Cerca cliente..."
+                value={clientSearch}
+                onChange={e =>
+                  setClientSearch(e.target.value)
+                }
+                className="w-full border p-2 rounded"
+              />
+
+              <div className="max-h-32 overflow-y-auto border rounded">
+
+                {filteredClients.map(c => (
+
+                  <div
+                    key={c.id}
+                    onClick={() => {
+                      setSelectedClient(c.id)
+                      setClientSearch(c.nome)
+                    }}
+                    className="p-2 hover:bg-pink-100 cursor-pointer text-sm border-b"
+                  >
+                    {c.nome}
+                  </div>
+
+                ))}
+
+              </div>
+
+            </div>
+
+            {/* SERVIZI */}
             <div className="max-h-32 overflow-y-auto border rounded p-2">
+
               {services.map(s => (
-                <label key={s.id} className="flex justify-between text-sm">
+
+                <label
+                  key={s.id}
+                  className="flex justify-between text-sm"
+                >
+
                   <div className="flex gap-2">
+
                     <input
                       type="checkbox"
                       checked={selectedServices.includes(s.id)}
                       onChange={e => {
+
                         if (e.target.checked) {
-                          setSelectedServices([...selectedServices, s.id])
+                          setSelectedServices([
+                            ...selectedServices,
+                            s.id
+                          ])
                         } else {
                           setSelectedServices(
-                            selectedServices.filter(id => id !== s.id)
+                            selectedServices.filter(
+                              id => id !== s.id
+                            )
                           )
                         }
+
                       }}
                     />
+
                     {s.nome}
+
                   </div>
-                  <span>€{s.prezzo}</span>
+
+                  <span>
+                    €{s.prezzo}
+                  </span>
+
                 </label>
+
               ))}
+
             </div>
 
+            {/* BOTTONI */}
             <div className="flex justify-between">
-              <button onClick={() => setShowModal(false)}>Annulla</button>
+
+              <button
+                onClick={() => setShowModal(false)}
+              >
+                Annulla
+              </button>
 
               <button
                 onClick={saveAppointment}
@@ -331,9 +499,11 @@ export default function CalendarPage() {
               >
                 Salva
               </button>
+
             </div>
 
           </div>
+
         </div>
       )}
 
