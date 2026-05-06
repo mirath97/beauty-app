@@ -19,7 +19,7 @@ export default function CalendarPage() {
 
   const [time, setTime] = useState('')
 
-  // 🔥 NUOVO
+  // 🔍 ricerca cliente
   const [clientSearch, setClientSearch] = useState('')
   const [filteredClients, setFilteredClients] = useState([])
 
@@ -27,7 +27,6 @@ export default function CalendarPage() {
     fetchAll()
   }, [])
 
-  // 🔥 NUOVO
   useEffect(() => {
     const results = clients.filter(c =>
       c.nome?.toLowerCase().includes(clientSearch.toLowerCase())
@@ -39,46 +38,72 @@ export default function CalendarPage() {
   async function fetchAll() {
     const supabase = getSupabase()
 
-    const { data: apps } = await supabase.from('appointments').select('*')
-    const { data: clientsData } = await supabase.from('clients').select('*')
-    const { data: servicesData } = await supabase.from('services').select('*')
-    const { data: appServices } = await supabase.from('appointment_services').select('*')
+    const { data: apps } = await supabase
+      .from('appointments')
+      .select('*')
+
+    const { data: clientsData } = await supabase
+      .from('clients')
+      .select('*')
+
+    const { data: servicesData } = await supabase
+      .from('services')
+      .select('*')
+
+    const { data: appServices } = await supabase
+      .from('appointment_services')
+      .select('*')
 
     setClients(clientsData || [])
     setServices(servicesData || [])
 
-    const enriched = apps.map(app => {
-      const client = clientsData?.find(c => c.id === app.client_id)
+    const enriched = (apps || []).map(app => {
+      const client = clientsData?.find(
+        c => c.id === app.client_id
+      )
 
-      const rel = appServices?.filter(r => r.appointment_id === app.id)
+      const rel = appServices?.filter(
+        r => r.appointment_id === app.id
+      )
 
       const serv = rel?.map(r =>
-        servicesData?.find(s => s.id === r.service_id)
+        servicesData?.find(
+          s => s.id === r.service_id
+        )
       )
 
       return {
         ...app,
         client,
-        services: serv
+        services: serv || []
       }
     })
 
-    enriched.sort((a, b) => new Date(a.data) - new Date(b.data))
+    enriched.sort(
+      (a, b) => new Date(a.data) - new Date(b.data)
+    )
 
-    setAppointments(enriched || [])
+    setAppointments(enriched)
   }
 
+  // 📅 settimana
   function getWeekDays(date) {
     const start = new Date(date)
-    start.setDate(date.getDate() - date.getDay())
+
+    start.setDate(
+      date.getDate() - date.getDay()
+    )
 
     return Array.from({ length: 7 }).map((_, i) => {
       const d = new Date(start)
+
       d.setDate(start.getDate() + i)
+
       return d
     })
   }
 
+  // ⏱ durata
   function getDuration(app) {
     return (app.services || []).reduce(
       (tot, s) => tot + Number(s?.durata || 30),
@@ -86,6 +111,7 @@ export default function CalendarPage() {
     )
   }
 
+  // 💰 totale
   function getTotal(app) {
     return (app.services || []).reduce(
       (acc, s) => acc + Number(s?.prezzo || 0),
@@ -93,29 +119,40 @@ export default function CalendarPage() {
     )
   }
 
+  // 📲 whatsapp
   function sendWhatsApp(app) {
     let phone = app.client?.telefono || ''
 
-    phone = phone.replace(/\s+/g, '').replace('+', '')
+    phone = phone
+      .replace(/\s+/g, '')
+      .replace('+', '')
 
     if (phone.startsWith('0')) {
       phone = '39' + phone.substring(1)
     }
 
-    const text = `Ciao ${app.client?.nome} 💅 ti aspettiamo!`
+    const text =
+      `Ciao ${app.client?.nome} 💅 ti aspettiamo!`
 
     window.open(
       `https://wa.me/${phone}?text=${encodeURIComponent(text)}`
     )
   }
 
-  const filteredAppointments = appointments.filter(app => {
-    const d = new Date(app.data)
-    return d.toDateString() === selectedDate.toDateString()
-  })
+  // 📅 filtro giorno
+  const filteredAppointments =
+    appointments.filter(app => {
+      const d = new Date(app.data)
 
+      return (
+        d.toDateString() ===
+        selectedDate.toDateString()
+      )
+    })
+
+  // 💾 salva appuntamento
   async function saveAppointment() {
-    if (!time || !selectedClient) {
+    if (!selectedClient || !time) {
       alert('Inserisci cliente e orario')
       return
     }
@@ -124,31 +161,50 @@ export default function CalendarPage() {
 
     let appId = editingId
 
+    // 📅 costruzione data completa
     const fullDate = new Date(selectedDate)
 
     const [hours, minutes] = time.split(':')
 
-    fullDate.setHours(hours || 0)
-    fullDate.setMinutes(minutes || 0)
+    fullDate.setHours(Number(hours || 0))
+    fullDate.setMinutes(Number(minutes || 0))
+    fullDate.setSeconds(0)
 
+    // ➕ nuovo
     if (!editingId) {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('appointments')
         .insert({
           client_id: selectedClient,
-          data: fullDate
+          data: fullDate.toISOString()
         })
         .select()
         .single()
 
+      if (error) {
+        console.error(error)
+        alert('Errore salvataggio appuntamento')
+        return
+      }
+
       appId = data.id
-    } else {
-      await supabase
+    }
+
+    // ✏ modifica
+    else {
+      const { error } = await supabase
         .from('appointments')
         .update({
-          data: fullDate
+          client_id: selectedClient,
+          data: fullDate.toISOString()
         })
         .eq('id', editingId)
+
+      if (error) {
+        console.error(error)
+        alert('Errore modifica appuntamento')
+        return
+      }
 
       await supabase
         .from('appointment_services')
@@ -156,6 +212,7 @@ export default function CalendarPage() {
         .eq('appointment_id', editingId)
     }
 
+    // 💅 servizi
     for (let s of selectedServices) {
       await supabase
         .from('appointment_services')
@@ -165,7 +222,9 @@ export default function CalendarPage() {
         })
     }
 
+    // reset
     setShowModal(false)
+
     setEditingId(null)
 
     setSelectedClient('')
@@ -184,7 +243,7 @@ export default function CalendarPage() {
         Calendario 💅
       </h1>
 
-      {/* TOGGLE */}
+      {/* VIEW */}
       <div className="flex gap-2">
 
         <button
@@ -250,7 +309,14 @@ export default function CalendarPage() {
 
       {/* NUOVO */}
       <button
-        onClick={() => setShowModal(true)}
+        onClick={() => {
+          setEditingId(null)
+          setSelectedClient('')
+          setSelectedServices([])
+          setClientSearch('')
+          setTime('')
+          setShowModal(true)
+        }}
         className="bg-pink-600 text-white px-4 py-2 rounded-xl shadow"
       >
         ➕ Nuovo appuntamento
@@ -263,7 +329,7 @@ export default function CalendarPage() {
           {getWeekDays(selectedDate).map(day => (
 
             <div
-              key={day}
+              key={day.toISOString()}
               className="bg-white p-3 rounded-xl shadow"
             >
 
@@ -277,10 +343,12 @@ export default function CalendarPage() {
                   day.toDateString()
                 )
                 .map(a => (
+
                   <div
                     key={a.id}
                     className="text-xs border-b py-1"
                   >
+
                     {new Date(a.data).toLocaleTimeString([], {
                       hour: '2-digit',
                       minute: '2-digit'
@@ -289,7 +357,9 @@ export default function CalendarPage() {
                     <br />
 
                     {a.client?.nome}
+
                   </div>
+
                 ))}
 
             </div>
@@ -300,84 +370,91 @@ export default function CalendarPage() {
       )}
 
       {/* GIORNO */}
-      {viewMode === 'day' &&
-        filteredAppointments.map(app => (
+      {viewMode === 'day' && (
+        <div className="space-y-3">
 
-          <div
-            key={app.id}
-            className="bg-gradient-to-r from-pink-500 to-pink-400 text-white p-4 rounded-xl shadow space-y-1"
-          >
+          {filteredAppointments.map(app => (
 
-            <div className="flex justify-between">
+            <div
+              key={app.id}
+              className="bg-gradient-to-r from-pink-500 to-pink-400 text-white p-4 rounded-xl shadow"
+            >
 
-              <div className="font-bold text-lg">
-                {app.client?.nome}
+              <div className="flex justify-between">
+
+                <div className="font-bold text-lg">
+                  {app.client?.nome}
+                </div>
+
+                <div className="font-bold">
+                  € {getTotal(app)}
+                </div>
+
               </div>
 
-              <div>
-                € {getTotal(app)}
+              <div className="text-sm mt-1">
+                🕒 {new Date(app.data).toLocaleTimeString([], {
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}
+              </div>
+
+              <div className="text-xs mt-1">
+                ⏱ {getDuration(app)} min
+              </div>
+
+              <div className="text-xs mt-1">
+                {(app.services || [])
+                  .map(s => s?.nome)
+                  .join(', ')}
+              </div>
+
+              <div className="flex gap-2 mt-3">
+
+                <button
+                  onClick={() => sendWhatsApp(app)}
+                  className="bg-green-500 px-2 py-1 rounded text-xs"
+                >
+                  WhatsApp
+                </button>
+
+                <button
+                  onClick={() => {
+                    setEditingId(app.id)
+
+                    setSelectedClient(
+                      app.client?.id || ''
+                    )
+
+                    setClientSearch(
+                      app.client?.nome || ''
+                    )
+
+                    setSelectedServices(
+                      app.services.map(s => s.id)
+                    )
+
+                    setTime(
+                      new Date(app.data)
+                        .toTimeString()
+                        .slice(0, 5)
+                    )
+
+                    setShowModal(true)
+                  }}
+                  className="bg-blue-500 px-2 py-1 rounded text-xs"
+                >
+                  Modifica
+                </button>
+
               </div>
 
             </div>
 
-            <div className="text-sm">
-              🕒 {new Date(app.data).toLocaleTimeString([], {
-                hour: '2-digit',
-                minute: '2-digit'
-              })}
-            </div>
+          ))}
 
-            <div className="text-xs">
-              ⏱ {getDuration(app)} min
-            </div>
-
-            <div className="text-xs">
-              {(app.services || [])
-                .map(s => s?.nome)
-                .join(', ')}
-            </div>
-
-            <div className="flex gap-2 mt-2">
-
-              <button
-                onClick={() => sendWhatsApp(app)}
-                className="bg-green-500 px-2 py-1 rounded text-xs"
-              >
-                WhatsApp
-              </button>
-
-              <button
-                onClick={() => {
-                  setEditingId(app.id)
-
-                  setSelectedClient(app.client?.id)
-
-                  setClientSearch(
-                    app.client?.nome || ''
-                  )
-
-                  setSelectedServices(
-                    app.services.map(s => s.id)
-                  )
-
-                  setTime(
-                    new Date(app.data)
-                      .toTimeString()
-                      .slice(0, 5)
-                  )
-
-                  setShowModal(true)
-                }}
-                className="bg-blue-500 px-2 py-1 rounded text-xs"
-              >
-                Modifica
-              </button>
-
-            </div>
-
-          </div>
-
-        ))}
+        </div>
+      )}
 
       {/* MODAL */}
       {showModal && (
@@ -386,14 +463,18 @@ export default function CalendarPage() {
           <div className="bg-white w-[340px] rounded-2xl shadow-xl p-5 space-y-4">
 
             <h2 className="text-lg font-bold text-pink-600">
+
               {editingId
                 ? 'Modifica appuntamento'
                 : 'Nuovo appuntamento'}
+
             </h2>
 
             {/* DATA */}
             <div className="bg-pink-50 p-2 rounded text-center text-sm">
+
               📅 {selectedDate.toLocaleDateString()}
+
             </div>
 
             {/* ORA */}
@@ -404,7 +485,7 @@ export default function CalendarPage() {
               className="w-full border p-2 rounded"
             />
 
-            {/* CLIENTE SEARCH */}
+            {/* CLIENTE */}
             <div className="space-y-2">
 
               <input
@@ -438,13 +519,13 @@ export default function CalendarPage() {
             </div>
 
             {/* SERVIZI */}
-            <div className="max-h-32 overflow-y-auto border rounded p-2">
+            <div className="max-h-40 overflow-y-auto border rounded p-2">
 
               {services.map(s => (
 
                 <label
                   key={s.id}
-                  className="flex justify-between text-sm"
+                  className="flex justify-between text-sm py-1"
                 >
 
                   <div className="flex gap-2">
@@ -459,7 +540,9 @@ export default function CalendarPage() {
                             ...selectedServices,
                             s.id
                           ])
-                        } else {
+                        }
+
+                        else {
                           setSelectedServices(
                             selectedServices.filter(
                               id => id !== s.id
@@ -484,7 +567,7 @@ export default function CalendarPage() {
 
             </div>
 
-            {/* BOTTONI */}
+            {/* BUTTONS */}
             <div className="flex justify-between">
 
               <button
