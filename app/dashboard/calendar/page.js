@@ -161,7 +161,6 @@ export default function CalendarPage() {
 
     let appId = editingId
 
-    // 📅 costruzione data completa
     const fullDate = new Date(selectedDate)
 
     const [hours, minutes] = time.split(':')
@@ -175,7 +174,7 @@ export default function CalendarPage() {
       const { data, error } = await supabase
         .from('appointments')
         .insert({
-          client_id: selectedClient,
+          client_id: Number(selectedClient),
           data: fullDate.toISOString()
         })
         .select()
@@ -195,7 +194,7 @@ export default function CalendarPage() {
       const { error } = await supabase
         .from('appointments')
         .update({
-          client_id: selectedClient,
+          client_id: Number(selectedClient),
           data: fullDate.toISOString()
         })
         .eq('id', editingId)
@@ -232,6 +231,29 @@ export default function CalendarPage() {
 
     setClientSearch('')
     setTime('')
+
+    fetchAll()
+  }
+
+  // 🗑 elimina appuntamento
+  async function deleteAppointment(id) {
+    const confirmDelete = confirm(
+      'Eliminare questo appuntamento?'
+    )
+
+    if (!confirmDelete) return
+
+    const supabase = getSupabase()
+
+    await supabase
+      .from('appointment_services')
+      .delete()
+      .eq('appointment_id', id)
+
+    await supabase
+      .from('appointments')
+      .delete()
+      .eq('id', id)
 
     fetchAll()
   }
@@ -409,6 +431,7 @@ export default function CalendarPage() {
                   .join(', ')}
               </div>
 
+              {/* BOTTONI */}
               <div className="flex gap-2 mt-3">
 
                 <button
@@ -445,6 +468,15 @@ export default function CalendarPage() {
                   className="bg-blue-500 px-2 py-1 rounded text-xs"
                 >
                   Modifica
+                </button>
+
+                <button
+                  onClick={() =>
+                    deleteAppointment(app.id)
+                  }
+                  className="bg-red-500 px-2 py-1 rounded text-xs"
+                >
+                  Elimina
                 </button>
 
               </div>
