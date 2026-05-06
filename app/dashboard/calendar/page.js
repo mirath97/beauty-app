@@ -183,7 +183,7 @@ export default function CalendarPage() {
 
       if (error) {
         console.error(error)
-        alert('Errore salvataggio appuntamento')
+        alert(error.message)
         return
       }
 
@@ -202,7 +202,7 @@ export default function CalendarPage() {
 
       if (error) {
         console.error(error)
-        alert('Errore modifica appuntamento')
+        alert(error.message)
         return
       }
 
