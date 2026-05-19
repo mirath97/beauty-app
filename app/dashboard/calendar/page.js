@@ -23,6 +23,9 @@ export default function CalendarPage() {
   const [clientSearch, setClientSearch] = useState('')
   const [filteredClients, setFilteredClients] = useState([])
 
+  // 🚫 nuovo stato conflitto
+  const [conflictMessage, setConflictMessage] = useState('')
+
   useEffect(() => {
     fetchAll()
   }, [])
@@ -139,6 +142,63 @@ export default function CalendarPage() {
     )
   }
 
+  // 🚫 controllo sovrapposizioni
+  function hasConflict(startDate, totalDuration) {
+    const newStart = new Date(startDate)
+
+    const newEnd = new Date(startDate)
+    newEnd.setMinutes(
+      newEnd.getMinutes() + totalDuration
+    )
+
+    const sameDayAppointments =
+      appointments.filter(app => {
+        const appDate = new Date(app.data)
+
+        return (
+          appDate.toDateString() ===
+          newStart.toDateString()
+        )
+      })
+
+    for (const app of sameDayAppointments) {
+      // ignora appuntamento corrente in modifica
+      if (editingId && app.id === editingId) {
+        continue
+      }
+
+      const existingStart = new Date(app.data)
+
+      const existingEnd = new Date(app.data)
+
+      const duration = getDuration(app)
+
+      existingEnd.setMinutes(
+        existingEnd.getMinutes() + duration
+      )
+
+      const overlap =
+        newStart < existingEnd &&
+        newEnd > existingStart
+
+      if (overlap) {
+        return {
+          conflict: true,
+          message:
+            `Orario occupato (${existingStart.toLocaleTimeString([], {
+              hour: '2-digit',
+              minute: '2-digit'
+            })})`
+        }
+      }
+    }
+
+    return {
+      conflict: false,
+      message: ''
+    }
+  }
+
   // 📅 filtro giorno
   const filteredAppointments =
     appointments.filter(app => {
@@ -168,6 +228,27 @@ export default function CalendarPage() {
     fullDate.setHours(Number(hours || 0))
     fullDate.setMinutes(Number(minutes || 0))
     fullDate.setSeconds(0)
+
+    // ⏱ durata nuova prenotazione
+    const totalDuration =
+      selectedServices.reduce((tot, id) => {
+        const s = services.find(x => x.id === id)
+
+        return tot + Number(s?.durata || 30)
+      }, 0)
+
+    // 🚫 CHECK CONFLITTO
+    const conflict = hasConflict(
+      fullDate,
+      totalDuration
+    )
+
+    if (conflict.conflict) {
+      setConflictMessage(conflict.message)
+      return
+    }
+
+    setConflictMessage('')
 
     // ➕ nuovo
     if (!editingId) {
@@ -231,6 +312,8 @@ export default function CalendarPage() {
 
     setClientSearch('')
     setTime('')
+
+    setConflictMessage('')
 
     fetchAll()
   }
@@ -337,6 +420,7 @@ export default function CalendarPage() {
           setSelectedServices([])
           setClientSearch('')
           setTime('')
+          setConflictMessage('')
           setShowModal(true)
         }}
         className="bg-pink-600 text-white px-4 py-2 rounded-xl shadow"
@@ -463,6 +547,8 @@ export default function CalendarPage() {
                         .slice(0, 5)
                     )
 
+                    setConflictMessage('')
+
                     setShowModal(true)
                   }}
                   className="bg-blue-500 px-2 py-1 rounded text-xs"
@@ -504,9 +590,7 @@ export default function CalendarPage() {
 
             {/* DATA */}
             <div className="bg-pink-50 p-2 rounded text-center text-sm">
-
               📅 {selectedDate.toLocaleDateString()}
-
             </div>
 
             {/* ORA */}
@@ -516,6 +600,13 @@ export default function CalendarPage() {
               onChange={e => setTime(e.target.value)}
               className="w-full border p-2 rounded"
             />
+
+            {/* 🚫 ERRORE */}
+            {conflictMessage && (
+              <div className="bg-red-100 text-red-600 text-sm p-2 rounded">
+                🚫 {conflictMessage}
+              </div>
+            )}
 
             {/* CLIENTE */}
             <div className="space-y-2">
