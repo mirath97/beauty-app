@@ -1,7 +1,5 @@
 'use client'
 
-import '../globals.css'
-
 import Link from 'next/link'
 
 import {
@@ -91,87 +89,79 @@ export default function DashboardLayout({
   }
 
   return (
-    <html lang="it">
+    <div className="flex min-h-screen bg-gray-100">
 
-      <body className="bg-gray-100">
+      {/* SIDEBAR */}
+      <aside className="w-64 bg-white shadow-lg p-4 hidden md:block">
 
-        <div className="flex min-h-screen">
+        <h1 className="text-2xl font-bold text-pink-600 mb-6">
+          BeautyLab 💅
+        </h1>
 
-          {/* SIDEBAR DESKTOP */}
-          <aside className="w-64 bg-white shadow-lg p-4 hidden md:block">
+        <nav className="flex flex-col gap-2">
 
-            <h1 className="text-2xl font-bold text-pink-600 mb-6">
-              BeautyLab 💅
-            </h1>
+          {links.map(link => {
+            const active =
+              pathname === link.href
 
-            <nav className="flex flex-col gap-2">
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`px-4 py-3 rounded-xl text-sm font-medium transition ${
+                  active
+                    ? 'bg-pink-600 text-white'
+                    : 'hover:bg-gray-100'
+                }`}
+              >
+                {link.name}
+              </Link>
+            )
+          })}
 
-              {links.map(link => {
-                const active =
-                  pathname === link.href
+        </nav>
 
-                return (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    className={`px-4 py-3 rounded-xl text-sm font-medium transition ${
-                      active
-                        ? 'bg-pink-600 text-white'
-                        : 'hover:bg-gray-100'
-                    }`}
-                  >
-                    {link.name}
-                  </Link>
-                )
-              })}
+        {/* LOGOUT */}
+        <button
+          onClick={logout}
+          className="mt-6 w-full bg-red-500 hover:bg-red-600 transition text-white py-3 rounded-xl"
+        >
+          🚪 Logout
+        </button>
 
-            </nav>
+      </aside>
 
-            {/* LOGOUT */}
-            <button
-              onClick={logout}
-              className="mt-6 w-full bg-red-500 hover:bg-red-600 transition text-white py-3 rounded-xl"
+      {/* MOBILE NAV */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white shadow-lg flex justify-around p-2 z-50 border-t">
+
+        {links.map(link => {
+          const active =
+            pathname === link.href
+
+          return (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={`text-xs flex flex-col items-center ${
+                active
+                  ? 'text-pink-600 font-bold'
+                  : 'text-gray-500'
+              }`}
             >
-              🚪 Logout
-            </button>
+              {link.name.split(' ')[0]}
+            </Link>
+          )
+        })}
 
-          </aside>
+      </div>
 
-          {/* MOBILE NAV */}
-          <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white shadow-lg flex justify-around p-2 z-50 border-t">
+      {/* CONTENUTO */}
+      <main className="flex-1 p-4 md:p-6 pb-20 md:pb-6">
 
-            {links.map(link => {
-              const active =
-                pathname === link.href
+        {children}
 
-              return (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className={`text-xs flex flex-col items-center ${
-                    active
-                      ? 'text-pink-600 font-bold'
-                      : 'text-gray-500'
-                  }`}
-                >
-                  {link.name.split(' ')[0]}
-                </Link>
-              )
-            })}
+      </main>
 
-          </div>
-
-          {/* CONTENUTO */}
-          <main className="flex-1 p-4 md:p-6 pb-20 md:pb-6">
-
-            {children}
-
-          </main>
-
-        </div>
-
-      </body>
-
-    </html>
+    </div>
   )
 }
