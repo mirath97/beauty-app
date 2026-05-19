@@ -1,10 +1,17 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+
+import Link from 'next/link'
+
 import { getSupabase } from '@/lib/supabaseClient'
 
-export default function Dashboard() {
+export default function DashboardPage() {
   const [appointments, setAppointments] = useState([])
+  const [clients, setClients] = useState([])
+  const [services, setServices] = useState([])
+
+  const [todayTotal, setTodayTotal] = useState(0)
 
   useEffect(() => {
     fetchData()
@@ -13,153 +20,258 @@ export default function Dashboard() {
   async function fetchData() {
     const supabase = getSupabase()
 
-    const { data: apps } = await supabase.from('appointments').select('*')
-    const { data: clients } = await supabase.from('clients').select('*')
-    const { data: services } = await supabase.from('services').select('*')
-    const { data: appServices } = await supabase.from('appointment_services').select('*')
+    const { data: apps } = await supabase
+      .from('appointments')
+      .select('*')
 
-    const enriched = apps.map(app => {
-      const client = clients?.find(c => c.id === app.client_id)
+    const { data: clientsData } = await supabase
+      .from('clients')
+      .select('*')
 
-      const rel = appServices?.filter(r => r.appointment_id === app.id)
+    const { data: servicesData } = await supabase
+      .from('services')
+      .select('*')
+
+    const { data: appServices } = await supabase
+      .from('appointment_services')
+      .select('*')
+
+    setClients(clientsData || [])
+    setServices(servicesData || [])
+
+    const enriched = (apps || []).map(app => {
+      const client = clientsData?.find(
+        c => c.id === app.client_id
+      )
+
+      const rel = appServices?.filter(
+        r => r.appointment_id === app.id
+      )
 
       const serv = rel?.map(r =>
-        services?.find(s => s.id === r.service_id)
+        servicesData?.find(
+          s => s.id === r.service_id
+        )
       )
 
       return {
         ...app,
         client,
-        services: serv
+        services: serv || []
       }
     })
 
-    setAppointments(enriched || [])
-  }
-
-  // 📅 oggi
-  const today = new Date()
-
-  const todayApps = appointments.filter(app => {
-    const d = new Date(app.data)
-    return d.toDateString() === today.toDateString()
-  })
-
-  // 💰 incasso oggi
-  const todayTotal = todayApps.reduce((tot, app) => {
-    return tot + (app.services || []).reduce(
-      (acc, s) => acc + Number(s?.prezzo || 0),
-      0
+    enriched.sort(
+      (a, b) => new Date(a.data) - new Date(b.data)
     )
-  }, 0)
 
-  // 👑 cliente top
-  function getTopClient() {
-    const map = {}
+    setAppointments(enriched)
 
-    appointments.forEach(app => {
-      const nome = app.client?.nome
-      if (!nome) return
-      map[nome] = (map[nome] || 0) + 1
-    })
+    // 💰 totale oggi
+    const today = new Date().toDateString()
 
-    const sorted = Object.entries(map).sort((a, b) => b[1] - a[1])
+    const todayApps = enriched.filter(
+      a =>
+        new Date(a.data).toDateString() ===
+        today
+    )
 
-    return sorted[0] || ['-', 0]
+    const total = todayApps.reduce((tot, app) => {
+      return (
+        tot +
+        (app.services || []).reduce(
+          (acc, s) =>
+            acc + Number(s?.prezzo || 0),
+          0
+        )
+      )
+    }, 0)
+
+    setTodayTotal(total)
   }
 
-  // 🔥 servizio top
-  function getTopService() {
-    const map = {}
-
-    appointments.forEach(app => {
-      app.services?.forEach(s => {
-        const nome = s?.nome
-        if (!nome) return
-        map[nome] = (map[nome] || 0) + 1
-      })
-    })
-
-    const sorted = Object.entries(map).sort((a, b) => b[1] - a[1])
-
-    return sorted[0] || ['-', 0]
-  }
-
-  const [topClient, topCount] = getTopClient()
-  const [topService, serviceCount] = getTopService()
+  // 📅 appuntamenti oggi
+  const todayAppointments =
+    appointments.filter(
+      app =>
+        new Date(app.data).toDateString() ===
+        new Date().toDateString()
+    )
 
   return (
-    <div className="p-4 space-y-4">
+    <div className="space-y-4">
 
-      <h1 className="text-2xl font-bold text-pink-700">
-        Dashboard 💅
-      </h1>
+      {/* HEADER */}
+      <div>
+
+        <h1 className="text-3xl font-bold text-pink-700">
+          Dashboard 💅
+        </h1>
+
+        <p className="text-sm text-gray-500 mt-1">
+          Benvenuta nel gestionale BeautyLab
+        </p>
+
+      </div>
 
       {/* KPI */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
 
-        <div className="bg-pink-100 p-4 rounded-xl">
-          <div className="text-sm">Appuntamenti oggi</div>
-          <div className="text-xl font-bold">
-            {todayApps.length}
+        <div className="bg-white p-4 rounded-2xl shadow">
+
+          <div className="text-sm text-gray-500">
+            Appuntamenti oggi
           </div>
+
+          <div className="text-2xl font-bold text-pink-600 mt-1">
+            {todayAppointments.length}
+          </div>
+
         </div>
 
-        <div className="bg-green-100 p-4 rounded-xl">
-          <div className="text-sm">Incasso oggi</div>
-          <div className="text-xl font-bold">
+        <div className="bg-white p-4 rounded-2xl shadow">
+
+          <div className="text-sm text-gray-500">
+            Clienti
+          </div>
+
+          <div className="text-2xl font-bold text-pink-600 mt-1">
+            {clients.length}
+          </div>
+
+        </div>
+
+        <div className="bg-white p-4 rounded-2xl shadow">
+
+          <div className="text-sm text-gray-500">
+            Servizi
+          </div>
+
+          <div className="text-2xl font-bold text-pink-600 mt-1">
+            {services.length}
+          </div>
+
+        </div>
+
+        <div className="bg-white p-4 rounded-2xl shadow">
+
+          <div className="text-sm text-gray-500">
+            Incasso oggi
+          </div>
+
+          <div className="text-2xl font-bold text-green-600 mt-1">
             € {todayTotal}
           </div>
-        </div>
 
-        <div className="bg-purple-100 p-4 rounded-xl">
-          <div className="text-sm">Cliente top</div>
-          <div className="text-sm font-bold">
-            {topClient} ({topCount})
-          </div>
-        </div>
-
-        <div className="bg-yellow-100 p-4 rounded-xl">
-          <div className="text-sm">Servizio top</div>
-          <div className="text-sm font-bold">
-            {topService} ({serviceCount})
-          </div>
         </div>
 
       </div>
 
-      {/* LISTA OGGI */}
-      <div className="bg-white p-4 rounded-xl shadow">
+      {/* SHORTCUT */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
 
-        <div className="font-bold mb-2">
-          📅 Appuntamenti oggi
+        <Link
+          href="/dashboard/calendar"
+          className="bg-pink-600 text-white p-4 rounded-2xl shadow text-center"
+        >
+          📅 Calendario
+        </Link>
+
+        <Link
+          href="/dashboard/clients"
+          className="bg-white p-4 rounded-2xl shadow text-center"
+        >
+          👤 Clienti
+        </Link>
+
+        <Link
+          href="/dashboard/services"
+          className="bg-white p-4 rounded-2xl shadow text-center"
+        >
+          💅 Servizi
+        </Link>
+
+        <Link
+          href="/dashboard/incassi"
+          className="bg-white p-4 rounded-2xl shadow text-center"
+        >
+          💰 Incassi
+        </Link>
+
+      </div>
+
+      {/* OGGI */}
+      <div className="bg-white p-4 rounded-2xl shadow">
+
+        <div className="flex justify-between items-center mb-4">
+
+          <h2 className="font-bold text-pink-600">
+            Appuntamenti di oggi
+          </h2>
+
+          <Link
+            href="/dashboard/calendar"
+            className="text-xs text-pink-600"
+          >
+            Vai al calendario →
+          </Link>
+
         </div>
 
-        {todayApps.length === 0 && (
-          <div className="text-gray-500 text-sm">
+        {todayAppointments.length === 0 && (
+          <div className="text-sm text-gray-500">
             Nessun appuntamento oggi
           </div>
         )}
 
-        {todayApps.map(app => (
-          <div
-            key={app.id}
-            className="flex justify-between border-b py-2 text-sm"
-          >
+        <div className="space-y-3">
 
-            <span>
-              {app.client?.nome}
-            </span>
+          {todayAppointments.map(app => (
 
-            <span>
-              € {(app.services || []).reduce(
-                (acc, s) => acc + Number(s?.prezzo || 0),
-                0
-              )}
-            </span>
+            <div
+              key={app.id}
+              className="border rounded-xl p-3 flex justify-between items-center"
+            >
 
-          </div>
-        ))}
+              <div>
+
+                <div className="font-bold">
+                  {app.client?.nome}
+                </div>
+
+                <div className="text-xs text-gray-500">
+
+                  🕒 {new Date(app.data).toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })}
+
+                </div>
+
+                <div className="text-xs text-gray-500 mt-1">
+
+                  {(app.services || [])
+                    .map(s => s?.nome)
+                    .join(', ')}
+
+                </div>
+
+              </div>
+
+              <div className="font-bold text-green-600">
+                €
+                {(app.services || []).reduce(
+                  (acc, s) =>
+                    acc + Number(s?.prezzo || 0),
+                  0
+                )}
+              </div>
+
+            </div>
+
+          ))}
+
+        </div>
 
       </div>
 
