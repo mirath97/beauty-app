@@ -15,17 +15,49 @@ export default function ClientsPage() {
   const [phone, setPhone] = useState('')
   const [search, setSearch] = useState('')
 
+  const [user, setUser] = useState(null)
+
   useEffect(() => {
-    fetchAll()
+    init()
   }, [])
 
-  async function fetchAll() {
+  async function init() {
     const supabase = getSupabase()
 
-    const { data: clientsData } = await supabase.from('clients').select('*')
-    const { data: apps } = await supabase.from('appointments').select('*')
-    const { data: servicesData } = await supabase.from('services').select('*')
-    const { data: rel } = await supabase.from('appointment_services').select('*')
+    const {
+      data: { user }
+    } = await supabase.auth.getUser()
+
+    if (!user) return
+
+    setUser(user)
+    fetchAll(user.id)
+  }
+
+  async function fetchAll(userId = user?.id) {
+    if (!userId) return
+
+    const supabase = getSupabase()
+
+    const { data: clientsData } = await supabase
+      .from('clients')
+      .select('*')
+      .eq('user_id', userId)
+      .order('nome')
+
+    const { data: apps } = await supabase
+      .from('appointments')
+      .select('*')
+      .eq('user_id', userId)
+
+    const { data: servicesData } = await supabase
+      .from('services')
+      .select('*')
+      .eq('user_id', userId)
+
+    const { data: rel } = await supabase
+      .from('appointment_services')
+      .select('*')
 
     setClients(clientsData || [])
     setAppointments(apps || [])
@@ -34,13 +66,14 @@ export default function ClientsPage() {
   }
 
   async function addClient() {
-    if (!name) return
+    if (!name || !user?.id) return
 
     const supabase = getSupabase()
 
     await supabase.from('clients').insert({
       nome: name,
-      telefono: phone
+      telefono: phone,
+      user_id: user.id
     })
 
     setName('')
@@ -49,6 +82,8 @@ export default function ClientsPage() {
   }
 
   async function updateClient() {
+    if (!selectedClient || !user?.id) return
+
     const supabase = getSupabase()
 
     await supabase
@@ -58,15 +93,27 @@ export default function ClientsPage() {
         telefono: phone
       })
       .eq('id', selectedClient.id)
+      .eq('user_id', user.id)
 
     setSelectedClient(null)
+    setName('')
+    setPhone('')
     fetchAll()
   }
 
   async function deleteClient(id) {
+    if (!user?.id) return
+
+    const confirmDelete = confirm('Eliminare questo cliente?')
+    if (!confirmDelete) return
+
     const supabase = getSupabase()
 
-    await supabase.from('clients').delete().eq('id', id)
+    await supabase
+      .from('clients')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', user.id)
 
     setSelectedClient(null)
     fetchAll()
@@ -76,12 +123,27 @@ export default function ClientsPage() {
     c.nome?.toLowerCase().includes(search.toLowerCase())
   )
 
-  // 📊 DATI CLIENTE
+  function openWhatsApp(phone, nome) {
+    if (!phone) {
+      alert('Numero mancante')
+      return
+    }
+
+    let cleaned = phone.replace(/\s+/g, '').replace('+', '')
+
+    if (cleaned.startsWith('0')) {
+      cleaned = '39' + cleaned.substring(1)
+    }
+
+    const text = `Ciao ${nome} 💅`
+    window.open(`https://wa.me/${cleaned}?text=${encodeURIComponent(text)}`)
+  }
+
   function getClientData(client) {
     const clientApps = appointments.filter(a => a.client_id === client.id)
 
     let total = 0
-    let servicesCount = {}
+    const servicesCount = {}
 
     clientApps.forEach(app => {
       const rel = appServices.filter(r => r.appointment_id === app.id)
@@ -92,9 +154,7 @@ export default function ClientsPage() {
         if (!s) return
 
         total += Number(s.prezzo || 0)
-
-        servicesCount[s.nome] =
-          (servicesCount[s.nome] || 0) + 1
+        servicesCount[s.nome] = (servicesCount[s.nome] || 0) + 1
       })
     })
 
@@ -102,9 +162,7 @@ export default function ClientsPage() {
       total,
       count: clientApps.length,
       servicesCount,
-      apps: clientApps.sort(
-        (a, b) => new Date(b.data) - new Date(a.data)
-      )
+      apps: clientApps.sort((a, b) => new Date(b.data) - new Date(a.data))
     }
   }
 
@@ -115,7 +173,6 @@ export default function ClientsPage() {
         Clienti 👤
       </h1>
 
-      {/* FORM */}
       <div className="bg-white p-4 rounded-2xl shadow space-y-3">
         <div className="font-bold text-pink-600">
           ➕ Nuovo cliente
@@ -143,7 +200,6 @@ export default function ClientsPage() {
         </button>
       </div>
 
-      {/* SEARCH */}
       <input
         placeholder="🔍 Cerca cliente"
         value={search}
@@ -151,7 +207,6 @@ export default function ClientsPage() {
         className="w-full border p-2 rounded"
       />
 
-      {/* LISTA */}
       <div className="space-y-2">
         {filtered.map(c => (
           <div
@@ -170,32 +225,30 @@ export default function ClientsPage() {
               </div>
             </div>
 
-            <a
-              href={`https://wa.me/${(c.telefono || '').replace('+', '')}`}
-              target="_blank"
-              onClick={e => e.stopPropagation()}
+            <button
+              onClick={e => {
+                e.stopPropagation()
+                openWhatsApp(c.telefono, c.nome)
+              }}
               className="bg-green-500 text-white px-3 py-1 rounded text-xs"
             >
               WhatsApp
-            </a>
+            </button>
           </div>
         ))}
       </div>
 
-      {/* MODAL CLIENTE */}
       {selectedClient && (() => {
         const data = getClientData(selectedClient)
 
         return (
           <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-
             <div className="bg-white w-[340px] rounded-2xl p-5 space-y-4">
 
               <h2 className="text-lg font-bold text-pink-600">
                 Scheda cliente
               </h2>
 
-              {/* MODIFICA */}
               <input
                 value={name}
                 onChange={e => setName(e.target.value)}
@@ -208,9 +261,7 @@ export default function ClientsPage() {
                 className="w-full border p-2 rounded"
               />
 
-              {/* KPI */}
               <div className="grid grid-cols-2 gap-2 text-sm">
-
                 <div className="bg-pink-100 p-2 rounded">
                   Visite: {data.count}
                 </div>
@@ -218,10 +269,8 @@ export default function ClientsPage() {
                 <div className="bg-green-100 p-2 rounded">
                   € {data.total}
                 </div>
-
               </div>
 
-              {/* SERVIZI */}
               <div>
                 <div className="text-sm font-bold mb-1">
                   Servizi più fatti
@@ -237,7 +286,6 @@ export default function ClientsPage() {
                   ))}
               </div>
 
-              {/* STORICO */}
               <div className="max-h-32 overflow-y-auto text-xs">
                 {data.apps.map(a => (
                   <div key={a.id} className="border-b py-1">
@@ -246,9 +294,7 @@ export default function ClientsPage() {
                 ))}
               </div>
 
-              {/* BOTTONI */}
               <div className="flex justify-between">
-
                 <button
                   onClick={() => deleteClient(selectedClient.id)}
                   className="text-red-500 text-sm"
@@ -262,18 +308,20 @@ export default function ClientsPage() {
                 >
                   Salva
                 </button>
-
               </div>
 
               <button
-                onClick={() => setSelectedClient(null)}
+                onClick={() => {
+                  setSelectedClient(null)
+                  setName('')
+                  setPhone('')
+                }}
                 className="text-gray-500 text-xs"
               >
                 Chiudi
               </button>
 
             </div>
-
           </div>
         )
       })()}
